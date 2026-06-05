@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nigro Catering — App Cliente (cloud)</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<style>html,body{margin:0;padding:0;background:#F4EDDF}#root{font-family:system-ui,sans-serif;color:#857B6A;padding:60px 20px;text-align:center}</style>
+</head>
+<body>
+<div id="root">Avvio dell'app…</div>
+
+  <script>
+    (function () {
+      function show(m) {
+        var d = document.getElementById('err-bar');
+        if (!d) { d = document.createElement('div'); d.id = 'err-bar';
+          d.style.cssText = 'position:fixed;left:0;right:0;bottom:0;background:#7a1f1f;color:#fff;font:13px/1.4 system-ui,sans-serif;padding:10px 14px;z-index:99999;white-space:pre-wrap;max-height:45%;overflow:auto';
+          (document.body || document.documentElement).appendChild(d); }
+        d.textContent = 'Errore (riferiscilo pure): ' + m;
+      }
+      window.addEventListener('error', function (e) { show((e.message || 'errore') + (e.filename ? ' @ ' + e.filename + ':' + e.lineno : '')); });
+      window.addEventListener('unhandledrejection', function (e) { var r = e.reason; show('Promise: ' + (r && r.message ? r.message : r)); });
+    })();
+  </script>
+
+<script type="text/babel" data-presets="react">
+
+const { useState, useEffect, useRef } = React;
+
+/* =====================================================================
+   CONFIGURAZIONE — incolla qui i DUE valori presi da Supabase.
+   Devono essere IDENTICI nel file CLIENTE e nel file FORNITORE.
+   ===================================================================== */
+const SUPABASE_URL = "https://ysflxqdavhjjozfrxwtt.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_5GSiTH_QyE0pa6Qhp6BPOw_wNbb9bVA";
+/* ===================================================================== */
+
+const CONFIGURED = !/INCOLLA_QUI/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
+let _sb = null;
+function _timeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout cloud (" + ms + "ms)")), ms))]);
+}
+if (CONFIGURED) {
+  _sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  window.storage = {
+    async get(k) {
+      const { data, error } = await _timeout(_sb.from("kv").select("value").eq("key", k).maybeSingle(), 7000);
+      if (error) throw error;
+      return data ? { key: k, value: data.value, shared: true } : null;
+    },
+    async set(k, v) {
+      const { error } = await _timeout(_sb.from("kv").upsert({ key: k, value: v }), 7000);
+      if (error) throw error;
+      return { key: k, value: v, shared: true };
+    },
+    async delete(k) { await _timeout(_sb.from("kv").delete().eq("key", k), 7000); return { key: k, deleted: true }; },
+    async list() { const { data } = await _timeout(_sb.from("kv").select("key"), 7000); return { keys: (data || []).map(r => r.key) }; },
+  };
+}
+
+function Setup() {
+  return (
+    <div style={{ fontFamily: "system-ui,sans-serif", maxWidth: 560, margin: "40px auto", padding: 24, background: "#FFFCF4", border: "1px solid #E4D9C2", borderRadius: 16, color: "#26221C" }}>
+      <h2 style={{ margin: "0 0 8px", color: "#BE4A2B" }}>Configurazione cloud mancante</h2>
+      <p style={{ lineHeight: 1.5, color: "#5b5346" }}>Apri questo file con un editor di testo e incolla i due valori del tuo progetto Supabase nella sezione CONFIGURAZIONE in alto (gli stessi nei due file).</p>
+    </div>
+  );
+}
+
+
+
+
+/* ============================================================
+   APP CLIENTE — Nigro Catering
+   Login, storico, catalogo (con aggiunta referenze), riordino, invio.
+   + avviso in tempo reale quando il fornitore ha visto l'ordine.
+   Condivide l'archivio cloud con il Pannello Fornitore.
+   ============================================================ */
+
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Spline+Sans:wght@400;500;600;700&display=swap');
+:root{
+  --cream:#F4EDDF; --paper:#FFFCF4; --olive:#2E4230; --terra:#BE4A2B; --mustard:#CE933B;
+  --ink:#26221C; --muted:#857B6A; --line:#E4D9C2; --good:#3C7A4E;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+.ngr{font-family:'Spline Sans',sans-serif;color:var(--ink);background:var(--cream);min-height:100vh;
+  background-image:radial-gradient(circle at 15% 0%, #fbf6ea 0%, transparent 40%),radial-gradient(circle at 100% 100%, #efe6d2 0%, transparent 45%);}
+.serif{font-family:'Fraunces',serif;}
+.wrap{max-width:1000px;margin:0 auto;padding:0 20px;}
+.top{position:sticky;top:0;z-index:30;background:rgba(46,66,48,.97);backdrop-filter:blur(6px);color:#F4EDDF;border-bottom:2px solid var(--mustard);}
+.top-in{max-width:1000px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:12px;}
+.logo{width:42px;height:42px;border-radius:50%;background:var(--mustard);color:var(--olive);display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:700;font-size:22px;flex:none;box-shadow:0 2px 0 rgba(0,0,0,.15);}
+.brand h1{font-family:'Fraunces',serif;font-weight:600;font-size:21px;line-height:1;letter-spacing:.3px;}
+.brand small{display:block;color:#cdd8c4;font-size:11.5px;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px;}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:16px;}
+.btn{font-family:inherit;font-weight:600;cursor:pointer;border:none;border-radius:11px;padding:11px 18px;font-size:14.5px;transition:.16s;}
+.btn-primary{background:var(--terra);color:#fff;}
+.btn-primary:hover{filter:brightness(1.06);}
+.btn-ghost{background:transparent;color:var(--olive);border:1.5px solid var(--olive);}
+.btn-ghost:hover{background:var(--olive);color:#fff;}
+.btn-soft{background:#EFE6D2;color:var(--olive);}
+.btn-soft:hover{background:#e6d9bf;}
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.4px;padding:3px 9px;border-radius:999px;text-transform:uppercase;}
+.sec-title{font-family:'Fraunces',serif;font-size:27px;font-weight:600;margin-bottom:4px;}
+.sec-sub{color:var(--muted);font-size:14.5px;margin-bottom:22px;}
+.qty{display:inline-flex;align-items:center;border:1.5px solid var(--line);border-radius:10px;overflow:hidden;background:#fff;}
+.qty button{width:34px;height:34px;border:none;background:#F3ECDB;color:var(--olive);font-size:18px;font-weight:700;cursor:pointer;}
+.qty button:hover{background:#e8dcc2;}
+.qty span{min-width:34px;text-align:center;font-weight:600;font-size:15px;}
+.field{width:100%;font-family:inherit;font-size:15px;padding:12px 14px;border:1.5px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
+.field:focus{outline:none;border-color:var(--mustard);}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rise{animation:rise .35s ease both;}
+@keyframes slidein{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+.banner{animation:slidein .3s ease both;}
+`;
+
+/* ---------- Catalogo (prodotti base + referenze aggiunte, salvate nel cloud) ---------- */
+const BASE_PRODUCTS = [
+  { id: "p1", n: "Olio EVO", u: "latta", c: "Oli" },
+  { id: "p2", n: "Olio alto oleico", u: "latta", c: "Oli" },
+  { id: "p3", n: "Olio di semi di girasole", u: "latta", c: "Oli" },
+  { id: "p4", n: "Zucchero", u: "sacco", c: "Dispensa" },
+  { id: "p5", n: "Uova", u: "cartone", c: "Freschi" },
+  { id: "p6", n: "Seppia", u: "kg", c: "Pescheria" },
+  { id: "p7", n: "Mozzarella", u: "kg", c: "Latticini" },
+];
+let EXTRAS = [];
+let CATALOG = [...BASE_PRODUCTS];
+let PMAP = Object.fromEntries(CATALOG.map((p) => [p.id, p]));
+let CATS = [...new Set(CATALOG.map((p) => p.c))];
+function applyExtras(extras) {
+  EXTRAS = Array.isArray(extras) ? extras : [];
+  CATALOG = [...BASE_PRODUCTS, ...EXTRAS];
+  PMAP = Object.fromEntries(CATALOG.map((p) => [p.id, p]));
+  CATS = [...new Set(CATALOG.map((p) => p.c))];
+}
+
+const CLIENTS = [
+  { id: "c1", n: "Pane per i tuoi denti", ref: "Titolare", init: "PD", color: "#BE4A2B", user: "pane" },
+];
+
+const SEED = [
+  { clientId: "c1", days: 6, items: { p1: 4, p4: 2, p5: 5, p7: 3 } },
+];
+let _id = 100;
+const newId = () => `o${_id++}`;
+function seedOrders() {
+  return SEED.map((s, i) => ({
+    id: `s${i}`, clientId: s.clientId,
+    items: Object.entries(s.items).map(([productId, qty]) => ({ productId, qty })),
+    status: "evaso", seen: true, ts: Date.now() - s.days * 864e5,
+  }));
+}
+const STATUS = {
+  inviato: { label: "Inviato", bg: "#FBEAD2", fg: "#B26A12" },
+  lavorazione: { label: "In lavorazione", bg: "#E5EEDC", fg: "#3C7A4E" },
+  evaso: { label: "Evaso", bg: "#E2E6DB", fg: "#566747" },
+};
+function when(ts) {
+  const d = Math.round((Date.now() - ts) / 864e5);
+  if (d <= 0) return "oggi"; if (d === 1) return "ieri"; return `${d} giorni fa`;
+}
+const STORE_KEY = "ngr_orders_v2";    // ordini (condiviso col fornitore)
+const CATALOG_KEY = "ngr_catalog_v2"; // referenze aggiunte (condiviso col fornitore)
+
+/* ============================================================ */
+function App() {
+  const [orders, setOrders] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [clientId, setClientId] = useState(null);
+  const [catTick, setCatTick] = useState(0);
+  const [seenBanner, setSeenBanner] = useState(false);
+  const lastSaved = useRef("");
+  const lastCatalog = useRef("");
+  const prevSeen = useRef(null);
+
+  // Rete di sicurezza: se qualcosa si blocca, apri comunque l'app
+  useEffect(() => { const t = setTimeout(() => setLoaded(true), 9000); return () => clearTimeout(t); }, []);
+
+  // Caricamento iniziale: ordini + catalogo
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        let data;
+        try { const r = await window.storage.get(STORE_KEY, true); data = r ? JSON.parse(r.value) : null; }
+        catch { data = null; }
+        if (!data) { data = seedOrders(); await window.storage.set(STORE_KEY, JSON.stringify(data), true); }
+        try { const c = await window.storage.get(CATALOG_KEY, true); if (c) { applyExtras(JSON.parse(c.value)); lastCatalog.current = c.value; } } catch {}
+        if (!alive) return;
+        lastSaved.current = JSON.stringify(data); setOrders(data); setCatTick((x) => x + 1);
+      } catch { if (alive) { setOnline(false); setOrders(seedOrders()); } }
+      finally { if (alive) setLoaded(true); }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // Salva ordini quando cambiano
+  useEffect(() => {
+    if (!loaded || !online) return;
+    const snap = JSON.stringify(orders);
+    if (snap === lastSaved.current) return;
+    lastSaved.current = snap;
+    window.storage.set(STORE_KEY, snap, true).catch(() => {});
+  }, [orders, loaded, online]);
+
+  // Sincronizzazione ordini + catalogo + rilevazione "visto dal fornitore"
+  useEffect(() => {
+    if (!loaded || !online || !clientId) return;
+    prevSeen.current = null;
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      try { Notification.requestPermission(); } catch {}
+    }
+    const t = setInterval(async () => {
+      try {
+        const r = await window.storage.get(STORE_KEY, true);
+        if (r) {
+          const data = JSON.parse(r.value);
+          if (r.value !== lastSaved.current) { lastSaved.current = r.value; setOrders(data); }
+          const seenNow = new Set(data.filter((o) => o.clientId === clientId && o.seen).map((o) => o.id));
+          if (prevSeen.current === null) prevSeen.current = seenNow;
+          else {
+            let fresh = false;
+            seenNow.forEach((id) => { if (!prevSeen.current.has(id)) fresh = true; });
+            prevSeen.current = seenNow;
+            if (fresh) notifySeen();
+          }
+        }
+        const c = await window.storage.get(CATALOG_KEY, true);
+        if (c && c.value !== lastCatalog.current) { lastCatalog.current = c.value; applyExtras(JSON.parse(c.value)); setCatTick((x) => x + 1); }
+      } catch {}
+    }, 4000);
+    return () => clearInterval(t);
+  }, [loaded, online, clientId]);
+
+  function notifySeen() {
+    setSeenBanner(true);
+    setTimeout(() => setSeenBanner(false), 6000);
+    try {
+      if (typeof Notification !== "undefined" && Notification.permission === "granted")
+        new Notification("Nigro Catering", { body: "Il fornitore ha visto il tuo ordine ✓" });
+    } catch {}
+    if (navigator.vibrate) { try { navigator.vibrate(120); } catch {} }
+  }
+
+  async function addProduct(name, unit) {
+    const p = { id: "x" + Date.now().toString(36), n: name.trim(), u: (unit || "pz").trim(), c: "Altre referenze" };
+    const extras = [...EXTRAS, p];
+    applyExtras(extras); setCatTick((x) => x + 1);
+    if (online) { try { const s = JSON.stringify(extras); lastCatalog.current = s; await window.storage.set(CATALOG_KEY, s, true); } catch {} }
+  }
+
+  const client = CLIENTS.find((c) => c.id === clientId);
+
+  return (
+    <div className="ngr">
+      <style>{CSS}</style>
+      <div className="top">
+        <div className="top-in">
+          <div className="brand">
+            <div className="logo">N</div>
+            <div><h1>Nigro Catering</h1><small>App Cliente</small></div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: 12, color: online ? "#cfe0c6" : "#e7c9a0", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: online ? "#7fd49a" : "#e0a44e" }} />
+              {online ? "Connesso" : "Locale"}
+            </span>
+            {client && <button className="btn btn-soft" style={{ padding: "8px 14px", fontSize: 13.5 }} onClick={() => setClientId(null)}>Esci</button>}
+          </div>
+        </div>
+      </div>
+
+      {seenBanner && (
+        <div className="banner" style={{ background: "#E5EEDC", borderBottom: "1px solid #c9dcbb", color: "#2f5236" }}>
+          <div className="wrap" style={{ padding: "10px 20px", fontWeight: 600, fontSize: 14 }}>🔔 Il fornitore ha visto il tuo ordine ✓</div>
+        </div>
+      )}
+
+      {!loaded
+        ? <div className="wrap" style={{ padding: "80px 20px", textAlign: "center", color: "var(--muted)" }}>Caricamento…</div>
+        : !client
+          ? <Login onLogin={setClientId} />
+          : <ClienteView orders={orders} setOrders={setOrders} clientId={clientId} onAddProduct={addProduct} catTick={catTick} />}
+
+      <div className="wrap" style={{ padding: "30px 20px 50px", color: "var(--muted)", fontSize: 12.5, textAlign: "center" }}>
+        {online ? "Gli ordini inviati arrivano in tempo reale al Pannello Fornitore." : "Salvataggio non disponibile: la demo funziona in memoria."}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Login ---------- */
+function Login({ onLogin }) {
+  const [user, setUser] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [err, setErr] = useState("");
+  const [pick, setPick] = useState(true);
+
+  function entra() {
+    const c = CLIENTS.find((x) => x.user === user.trim().toLowerCase());
+    if (c && pwd.length > 0) onLogin(c.id);
+    else setErr("Credenziali non valide. (Demo: password a piacere)");
+  }
+
+  return (
+    <div className="wrap rise" style={{ maxWidth: 440, paddingTop: 46 }}>
+      <div className="card" style={{ padding: 26 }}>
+        <div className="sec-title serif" style={{ fontSize: 24 }}>Accedi</div>
+        <div className="sec-sub" style={{ marginBottom: 18 }}>Entra con le credenziali del tuo locale. Vedrai solo i tuoi dati.</div>
+        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--olive)" }}>Nome utente</label>
+        <input className="field" style={{ margin: "6px 0 14px" }} placeholder="es. pane" value={user} onChange={(e) => { setUser(e.target.value); setErr(""); }} />
+        <label style={{ fontSize: 13, fontWeight: 600, color: "var(--olive)" }}>Password</label>
+        <input className="field" style={{ margin: "6px 0 14px" }} type="password" placeholder="••••••" value={pwd} onChange={(e) => { setPwd(e.target.value); setErr(""); }} />
+        {err && <div style={{ color: "var(--terra)", fontSize: 13, marginBottom: 12 }}>{err}</div>}
+        <button className="btn btn-primary" style={{ width: "100%", padding: 13 }} onClick={entra}>Entra</button>
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+          <button onClick={() => setPick(!pick)} style={{ background: "none", border: "none", color: "var(--muted)", fontFamily: "inherit", fontSize: 12.5, cursor: "pointer", textDecoration: "underline" }}>
+            {pick ? "Nascondi utenti di prova" : "Mostra utenti di prova"}
+          </button>
+          {pick && (
+            <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+              {CLIENTS.map((c) => (
+                <button key={c.id} onClick={() => { setUser(c.user); setPwd("demo"); setErr(""); }}
+                  style={{ display: "flex", gap: 10, alignItems: "center", background: "#F7F0E0", border: "1px solid var(--line)", borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 7, background: c.color, color: "#fff", display: "grid", placeItems: "center", fontFamily: "Fraunces,serif", fontWeight: 700, fontSize: 12 }}>{c.init}</span>
+                  <span style={{ fontSize: 13 }}><strong>{c.user}</strong> · {c.n}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Vista cliente ---------- */
+function ClienteView({ orders, setOrders, clientId, onAddProduct, catTick }) {
+  const [tab, setTab] = useState("storico");
+  const [cart, setCart] = useState({});
+  const [sent, setSent] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [pName, setPName] = useState("");
+  const [pUnit, setPUnit] = useState("");
+
+  const client = CLIENTS.find((c) => c.id === clientId);
+  const myOrders = orders.filter((o) => o.clientId === clientId).sort((a, b) => b.ts - a.ts);
+
+  function add(id, delta) {
+    setCart((c) => { const v = Math.max(0, (c[id] || 0) + delta); const n = { ...c }; if (v === 0) delete n[id]; else n[id] = v; return n; });
+  }
+  function reorder(items) { const n = {}; items.forEach((it) => { n[it.productId] = it.qty; }); setCart(n); setTab("carrello"); }
+  function invia() {
+    const items = Object.entries(cart).map(([productId, qty]) => ({ productId, qty }));
+    const o = { id: newId(), clientId, items, status: "inviato", seen: false, ts: Date.now() };
+    setOrders((prev) => [o, ...prev]); setSent(o); setCart({});
+  }
+  function confermaAdd() {
+    if (!pName.trim()) return;
+    onAddProduct(pName, pUnit);
+    setPName(""); setPUnit(""); setAdding(false);
+  }
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+
+  if (sent) {
+    return (
+      <div className="wrap rise" style={{ paddingTop: 60, textAlign: "center" }}>
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#E5EEDC", color: "var(--good)", display: "grid", placeItems: "center", margin: "0 auto 18px", fontSize: 38 }}>✓</div>
+        <div className="serif" style={{ fontSize: 30, fontWeight: 600 }}>Ordine inviato!</div>
+        <div className="sec-sub" style={{ marginTop: 6 }}>Nigro Catering ha ricevuto il tuo ordine.</div>
+        <div className="card" style={{ maxWidth: 460, margin: "10px auto 24px", padding: 18, textAlign: "left" }}>
+          {sent.items.map((it) => (
+            <div key={it.productId} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderBottom: "1px solid var(--line)" }}>
+              <span>{PMAP[it.productId] ? PMAP[it.productId].n : it.productId}</span>
+              <strong>{it.qty} {PMAP[it.productId] ? PMAP[it.productId].u : ""}</strong>
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-primary" onClick={() => { setSent(null); setTab("ordini"); }}>Vai ai miei ordini</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap" style={{ paddingTop: 26 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: client.color, color: "#fff", display: "grid", placeItems: "center", fontFamily: "Fraunces,serif", fontWeight: 700 }}>{client.init}</div>
+          <div>
+            <div className="serif" style={{ fontSize: 21, fontWeight: 600 }}>{client.n}</div>
+            <div style={{ color: "var(--muted)", fontSize: 13 }}>Bentornato, {client.ref}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, borderBottom: "2px solid var(--line)", marginBottom: 24, flexWrap: "wrap" }}>
+        {[["storico", "Storico"], ["catalogo", "Catalogo"], ["carrello", `Carrello${cartCount ? ` (${cartCount})` : ""}`], ["ordini", "I miei ordini"]].map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)} style={{
+            fontFamily: "inherit", fontSize: 15, fontWeight: 600, background: "none", border: "none", cursor: "pointer",
+            padding: "10px 14px", marginBottom: -2, color: tab === k ? "var(--terra)" : "var(--muted)",
+            borderBottom: tab === k ? "2px solid var(--terra)" : "2px solid transparent",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {tab === "storico" && (
+        <div className="rise">
+          <div className="sec-title serif">Storico ordini</div>
+          <div className="sec-sub">I tuoi ordini precedenti. Tocca “Riordina” per riportarli nel carrello.</div>
+          {myOrders.length === 0 && <Empty t="Ancora nessun ordine." />}
+          {myOrders.map((o) => (
+            <div key={o.id} className="card" style={{ padding: 18, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span className="tag" style={{ background: STATUS[o.status].bg, color: STATUS[o.status].fg }}>{STATUS[o.status].label}</span>
+                  {o.seen && <span className="tag" style={{ background: "#E5EEDC", color: "#3C7A4E" }}>👁 Visto</span>}
+                  <span style={{ color: "var(--muted)", fontSize: 13 }}>Ordine di {when(o.ts)}</span>
+                </div>
+                <button className="btn btn-ghost" onClick={() => reorder(o.items)}>↻ Riordina</button>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {o.items.map((it) => (
+                  <span key={it.productId} style={{ background: "#F3ECDB", borderRadius: 8, padding: "5px 10px", fontSize: 13.5 }}>
+                    {PMAP[it.productId] ? PMAP[it.productId].n : it.productId} · <strong>{it.qty} {PMAP[it.productId] ? PMAP[it.productId].u : ""}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "catalogo" && (
+        <div className="rise">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="sec-title serif">Catalogo prodotti</div>
+              <div className="sec-sub">Scegli i prodotti e le quantità, oppure aggiungi una nuova referenza.</div>
+            </div>
+            {!adding && <button className="btn btn-primary" onClick={() => setAdding(true)}>+ Aggiungi referenza</button>}
+          </div>
+
+          {adding && (
+            <div className="card rise" style={{ padding: 18, marginBottom: 22 }}>
+              <div style={{ fontWeight: 600, marginBottom: 12 }}>Nuova referenza</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <input className="field" style={{ flex: "2 1 220px" }} placeholder="Nome prodotto (es. Farina 00)" value={pName} onChange={(e) => setPName(e.target.value)} />
+                <input className="field" style={{ flex: "1 1 120px" }} placeholder="Unità (es. sacco)" value={pUnit} onChange={(e) => setPUnit(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="btn btn-primary" onClick={confermaAdd}>Aggiungi al catalogo</button>
+                <button className="btn btn-soft" onClick={() => { setAdding(false); setPName(""); setPUnit(""); }}>Annulla</button>
+              </div>
+              <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 10 }}>La referenza resta disponibile per i prossimi ordini e la vede anche il fornitore.</div>
+            </div>
+          )}
+
+          {CATS.map((cat) => (
+            <div key={cat} style={{ marginBottom: 26 }}>
+              <div style={{ fontWeight: 600, color: "var(--olive)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10, fontSize: 12.5 }}>{cat}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+                {CATALOG.filter((p) => p.c === cat).map((p) => (
+                  <div key={p.id} className="card" style={{ padding: 14, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.25 }}>{p.n}</div>
+                      <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 2 }}>al {p.u}</div>
+                    </div>
+                    {cart[p.id] ? (
+                      <div className="qty"><button onClick={() => add(p.id, -1)}>–</button><span>{cart[p.id]}</span><button onClick={() => add(p.id, 1)}>+</button></div>
+                    ) : (
+                      <button className="btn btn-soft" onClick={() => add(p.id, 1)}>+ Aggiungi</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "carrello" && (
+        <div className="rise">
+          <div className="sec-title serif">Il tuo ordine</div>
+          <div className="sec-sub">Controlla le quantità e invia. Nessun prezzo: indichi solo cosa ti serve.</div>
+          {cartCount === 0 ? <Empty t="Il carrello è vuoto. Aggiungi prodotti dal catalogo o riordina dallo storico." /> : (
+            <>
+              <div className="card" style={{ overflow: "hidden", marginBottom: 18 }}>
+                {Object.entries(cart).map(([id, qty], i) => (
+                  <div key={id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "13px 16px", borderTop: i ? "1px solid var(--line)" : "none" }}>
+                    <div><div style={{ fontWeight: 600 }}>{PMAP[id] ? PMAP[id].n : id}</div><div style={{ color: "var(--muted)", fontSize: 12.5 }}>al {PMAP[id] ? PMAP[id].u : ""}</div></div>
+                    <div className="qty"><button onClick={() => add(id, -1)}>–</button><span>{qty}</span><button onClick={() => add(id, 1)}>+</button></div>
+                  </div>
+                ))}
+              </div>
+              <button className="btn btn-primary" style={{ width: "100%", padding: 15, fontSize: 16 }} onClick={invia}>Invia ordine a Nigro Catering</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === "ordini" && (
+        <div className="rise">
+          <div className="sec-title serif">I miei ordini</div>
+          <div className="sec-sub">Segui lo stato dei tuoi ordini in tempo reale.</div>
+          {myOrders.length === 0 && <Empty t="Ancora nessun ordine." />}
+          {myOrders.map((o) => (
+            <div key={o.id} className="card" style={{ padding: 18, marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+                <span style={{ color: "var(--muted)", fontSize: 13 }}>Ordine di {when(o.ts)}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {o.seen && <span className="tag" style={{ background: "#E5EEDC", color: "#3C7A4E" }}>👁 Visto</span>}
+                  <span className="tag" style={{ background: STATUS[o.status].bg, color: STATUS[o.status].fg }}>{STATUS[o.status].label}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {o.items.map((it) => (
+                  <span key={it.productId} style={{ background: "#F3ECDB", borderRadius: 8, padding: "5px 10px", fontSize: 13.5 }}>
+                    {PMAP[it.productId] ? PMAP[it.productId].n : it.productId} · <strong>{it.qty} {PMAP[it.productId] ? PMAP[it.productId].u : ""}</strong>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Empty({ t }) {
+  return <div className="card" style={{ padding: 30, textAlign: "center", color: "var(--muted)", fontSize: 14.5 }}>{t}</div>;
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(CONFIGURED ? <App /> : <Setup />);
+</script>
+</body>
+</html>
