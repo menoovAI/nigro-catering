@@ -370,6 +370,7 @@ function subscribeRealtime(){
     if(document.body.classList.contains('v-clienti')) renderClienti();
     if(payload && payload.eventType==='INSERT' && payload.new && !localIds.has(payload.new.id)){
       toast('Nuovo ordine: '+(payload.new.nome||'cliente'));
+      beep();
     }
   }).subscribe();
 }
@@ -610,6 +611,28 @@ function editOrder(id){
   o.items.forEach(it=>{ const idx=state.products.findIndex(p=>(p.name||'')===it.name); if(idx>=0) state.products[idx].qty=it.qty; else missing++; });
   Store.saveConfig(); buildGrid(); renderBanco(); showView('ordine');
   if(missing) toast('Alcuni prodotti non sono più nel banco');
+}
+
+/* ---- Audio: bip all'arrivo di un nuovo ordine ---- */
+let audioCtx = null;
+function unlockAudio(){
+  try{ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  if(audioCtx.state==='suspended') audioCtx.resume();
+}
+document.addEventListener('pointerdown', unlockAudio);
+function beep(){
+  try{ if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  const now=audioCtx.currentTime;
+  [[0,880],[0.16,1175]].forEach(([t,f])=>{
+    const osc=audioCtx.createOscillator(), g=audioCtx.createGain();
+    osc.type='sine'; osc.frequency.value=f;
+    g.gain.setValueAtTime(0, now+t);
+    g.gain.linearRampToValueAtTime(0.28, now+t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+t+0.15);
+    osc.connect(g); g.connect(audioCtx.destination);
+    osc.start(now+t); osc.stop(now+t+0.16);
+  });
 }
 
 /* ---- Toast ---- */
