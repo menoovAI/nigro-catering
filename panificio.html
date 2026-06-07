@@ -295,6 +295,7 @@ function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch
 
 let sb = null;          // client supabase
 let online = false;     // stato connessione cloud
+const localIds = new Set();   // ordini creati su QUESTO dispositivo (per non auto-notificarsi)
 
 function toRow(o){ return { id:o.id, nome:o.name, telefono:o.phone||null, data:o.date||null, ora:o.ora||null, note:o.note||null, stato:o.stato, pezzi:o.pieces, items:o.items, created_at:new Date(o.createdAt||Date.now()).toISOString() }; }
 function fromRow(r){ return { id:r.id, name:r.nome, phone:r.telefono||'', date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[], createdAt:r.created_at?Date.parse(r.created_at):Date.now() }; }
@@ -333,6 +334,7 @@ const Store = {
   },
   async saveConfig(){ writeJSON(LS_CONFIG, { shop:state.shop, products:state.products, current:state.current }); },
   async addOrder(o){
+    localIds.add(o.id);
     state.orders.unshift(o); writeJSON(LS_ORDERS, state.orders);
     if(sb){ const { error } = await sb.from('ordini').insert(toRow(o)); if(error){ toast('Salvataggio cloud fallito'); console.error(error); } }
   },
@@ -362,10 +364,13 @@ function setStatus(){
 }
 function subscribeRealtime(){
   if(!sb) return;
-  sb.channel('ordini-rt').on('postgres_changes', { event:'*', schema:'public', table:'ordini' }, async ()=>{
+  sb.channel('ordini-rt').on('postgres_changes', { event:'*', schema:'public', table:'ordini' }, async (payload)=>{
     await Store.loadOrders();
     updateCliCount();
     if(document.body.classList.contains('v-clienti')) renderClienti();
+    if(payload && payload.eventType==='INSERT' && payload.new && !localIds.has(payload.new.id)){
+      toast('Nuovo ordine: '+(payload.new.nome||'cliente'));
+    }
   }).subscribe();
 }
 
