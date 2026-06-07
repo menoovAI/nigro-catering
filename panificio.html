@@ -38,6 +38,11 @@
   .shop-sub{font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.18em;text-transform:uppercase;margin-top:4px;}
 
   .nav{display:flex;gap:6px;background:var(--paper);padding:5px;border-radius:16px;border:1.5px solid var(--line-soft);box-shadow:0 2px 0 var(--line-soft);}
+  .head-right{display:flex;align-items:center;gap:11px;}
+  .cloud{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--muted);background:var(--paper);border:1.5px solid var(--line-soft);border-radius:13px;padding:10px 14px;}
+  .cloud .cdot{width:9px;height:9px;border-radius:50%;background:var(--muted-2);transition:background .3s,box-shadow .3s;}
+  .cloud.online{color:var(--good);} .cloud.online .cdot{background:var(--good);box-shadow:0 0 0 3px rgba(91,140,62,.2);}
+  .cloud.off{color:var(--bad);} .cloud.off .cdot{background:var(--bad);}
   .nav button{font-family:inherit;font-weight:700;font-size:15px;border:none;background:transparent;color:var(--muted);padding:11px 18px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .18s,color .18s,transform .1s;}
   .nav button:active{transform:scale(.96);}
   .nav button.active{background:var(--crust);color:var(--paper);box-shadow:0 3px 10px rgba(54,35,26,.25);}
@@ -191,11 +196,14 @@
         <div class="shop-sub">Ordini</div>
       </div>
     </div>
-    <nav class="nav">
+    <div class="head-right">
+      <div class="cloud" id="cloudStatus" title="Stato connessione cloud"><span class="cdot"></span><span id="cloudTxt">Locale</span></div>
+      <nav class="nav">
       <button id="navBanco" class="active" onclick="showView('banco')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Banco</button>
       <button id="navOrdine" onclick="showView('ordine')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1Z"/><path d="M9 5h6"/><path d="M8 11h8M8 15h5"/></svg>Ordine</button>
       <button id="navClienti" onclick="showView('clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>Clienti <span class="count" id="cliCount" style="display:none">0</span></button>
     </nav>
+    </div>
   </header>
 
   <main>
@@ -267,56 +275,99 @@
 
 <div id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* ============================================================
-   STRATO DATI — pronto per Supabase.
-   Oggi salva in locale (localStorage). Per passare a Supabase
-   basterà riscrivere il corpo di queste funzioni, mantenendo
-   le stesse firme (sono già asincrone).
+   STRATO DATI — Supabase (con cache locale e funzionamento offline).
+   Gli ORDINI vivono nel cloud nella tabella `ordini`.
+   Insegna e nomi prodotti restano per ora in locale (per-dispositivo).
 
-   Schema previsto (SQL):
-     create table ordini (
-       id text primary key,
-       nome text not null,
-       telefono text,
-       data date,
-       ora time,
-       note text,
-       stato text default 'da_preparare',
-       pezzi int,
-       items jsonb,        -- [{name, qty}]
-       created_at timestamptz default now()
-     );
-     create table prodotti (
-       posizione int primary key,  -- 0..15
-       nome text
-     );
-   Integrazione: caricare supabase-js v2 da CDN, creare il client
-   con URL progetto + chiave anon, e mappare i metodi sotto su
-   supabase.from('ordini').insert/update/delete/select.
+   >>> INSERISCI QUI I DATI DEL TUO PROGETTO SUPABASE <<<
+   (li trovi in Supabase: Project Settings -> API)
    ============================================================ */
-const LS = 'panificio_banco_v5';
-function _read(){ try{ return JSON.parse(localStorage.getItem(LS)); }catch(e){ return null; } }
-function _write(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){} }
+const SUPABASE_URL      = 'https://jjcseaerqvdvurptgnwy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Hi9yRrHX9MKWrpWe51vVIQ_HSZTWHmp';   // chiave pubblica (publishable)
+
+const LS_CONFIG = 'panificio_cfg_v1';                 // insegna + prodotti + ordine in corso
+const LS_ORDERS = 'panificio_ordini_cache_v1';        // copia locale degli ordini (offline)
+function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+
+let sb = null;          // client supabase
+let online = false;     // stato connessione cloud
+
+function toRow(o){ return { id:o.id, nome:o.name, telefono:o.phone||null, data:o.date||null, ora:o.ora||null, note:o.note||null, stato:o.stato, pezzi:o.pieces, items:o.items, created_at:new Date(o.createdAt||Date.now()).toISOString() }; }
+function fromRow(r){ return { id:r.id, name:r.nome, phone:r.telefono||'', date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[], createdAt:r.created_at?Date.parse(r.created_at):Date.now() }; }
 
 const Store = {
   async init(){
-    const s = _read();
-    if(s && Array.isArray(s.products) && s.products.length===16){
-      s.orders  = Array.isArray(s.orders) ? s.orders : [];
-      s.current = s.current || newCurrent();
-      if(!s.current.date) s.current.date = today();
-      s.orders.forEach(o=>{ if(!o.stato) o.stato='da_preparare'; });
-      return s;
+    let cfg = readJSON(LS_CONFIG);
+    let cache = readJSON(LS_ORDERS);
+    if(!cfg){                                              // migrazione dalla vecchia versione locale
+      const old = readJSON('panificio_banco_v5');
+      if(old && Array.isArray(old.products) && old.products.length===16){
+        cfg = { shop:old.shop, products:old.products.map(p=>({name:p.name, qty:0})), current:old.current||newCurrent() };
+        if(cache==null) cache = Array.isArray(old.orders)?old.orders:[];
+      }
     }
-    return { shop:'Pane per i tuoi denti', products:DEFAULTS.map(p=>({...p,qty:0})), current:newCurrent(), orders:[] };
+    if(!cfg) cfg = { shop:'Pane per i tuoi denti', products:DEFAULTS.map(p=>({...p,qty:0})), current:newCurrent() };
+    if(!cfg.current) cfg.current = newCurrent();
+    if(!cfg.current.date) cfg.current.date = today();
+    state = { shop:cfg.shop||'Pane per i tuoi denti', products:cfg.products, current:cfg.current, orders:Array.isArray(cache)?cache:[] };
+    state.orders.forEach(o=>{ if(!o.stato) o.stato='programmato'; });
+    if(window.supabase && SUPABASE_URL.indexOf('INSERISCI')<0){
+      try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb=null; }
+    }
+    return state;
   },
-  async saveConfig(){ _write(); },                         // shop + products + current
-  async addOrder(o){ state.orders.unshift(o); _write(); },
-  async updateOrder(o){ const i=state.orders.findIndex(x=>x.id===o.id); if(i>=0) state.orders[i]=o; _write(); },
-  async deleteOrder(id){ state.orders=state.orders.filter(o=>o.id!==id); _write(); },
-  async setStato(id,st){ const o=state.orders.find(x=>x.id===id); if(o){ o.stato=st; _write(); } },
+  async loadOrders(){
+    if(!sb) return;
+    try{
+      const { data, error } = await sb.from('ordini').select('*').order('created_at',{ascending:false});
+      if(error) throw error;
+      online = true;
+      state.orders = data.map(fromRow);
+      writeJSON(LS_ORDERS, state.orders);
+    }catch(e){ online=false; console.error('Supabase load:', e.message||e); }
+    setStatus();
+  },
+  async saveConfig(){ writeJSON(LS_CONFIG, { shop:state.shop, products:state.products, current:state.current }); },
+  async addOrder(o){
+    state.orders.unshift(o); writeJSON(LS_ORDERS, state.orders);
+    if(sb){ const { error } = await sb.from('ordini').insert(toRow(o)); if(error){ toast('Salvataggio cloud fallito'); console.error(error); } }
+  },
+  async updateOrder(o){
+    const i=state.orders.findIndex(x=>x.id===o.id); if(i>=0) state.orders[i]=o; writeJSON(LS_ORDERS, state.orders);
+    if(sb){ const { error } = await sb.from('ordini').update(toRow(o)).eq('id',o.id); if(error){ toast('Aggiornamento cloud fallito'); console.error(error); } }
+  },
+  async deleteOrder(id){
+    state.orders=state.orders.filter(o=>o.id!==id); writeJSON(LS_ORDERS, state.orders);
+    if(sb){ const { error } = await sb.from('ordini').delete().eq('id',id); if(error){ toast('Eliminazione cloud fallita'); console.error(error); } }
+  },
+  async deleteMany(ids){
+    state.orders=state.orders.filter(o=>!ids.includes(o.id)); writeJSON(LS_ORDERS, state.orders);
+    if(sb){ const { error } = await sb.from('ordini').delete().in('id',ids); if(error){ toast('Eliminazione cloud fallita'); console.error(error); } }
+  },
+  async setStato(id,st){
+    const o=state.orders.find(x=>x.id===id); if(o){ o.stato=st; writeJSON(LS_ORDERS, state.orders); }
+    if(sb){ const { error } = await sb.from('ordini').update({stato:st}).eq('id',id); if(error){ toast('Aggiornamento cloud fallito'); console.error(error); } }
+  },
 };
+function setStatus(){
+  const el=document.getElementById('cloudStatus'); if(!el)return;
+  const t=document.getElementById('cloudTxt');
+  if(!sb){ el.className='cloud'; t.textContent='Locale'; }
+  else if(online){ el.className='cloud online'; t.textContent='Cloud'; }
+  else { el.className='cloud off'; t.textContent='Offline'; }
+}
+function subscribeRealtime(){
+  if(!sb) return;
+  sb.channel('ordini-rt').on('postgres_changes', { event:'*', schema:'public', table:'ordini' }, async ()=>{
+    await Store.loadOrders();
+    updateCliCount();
+    if(document.body.classList.contains('v-clienti')) renderClienti();
+  }).subscribe();
+}
 
 /* ---- Costanti / helper ---- */
 const DEFAULTS = [
@@ -545,7 +596,7 @@ async function advanceStato(id){ const o=state.orders.find(x=>x.id===id); if(!o)
 async function markDelivered(id){ await Store.setStato(id,'consegnato'); updateCliCount(); renderClienti(); toast('Consegnato \u2192 nel cestino'); }
 async function restoreOrder(id){ await Store.setStato(id,'programmato'); updateCliCount(); renderClienti(); toast('Ordine ripristinato'); }
 async function deleteOrder(id){ await Store.deleteOrder(id); updateCliCount(); renderClienti(); }
-async function emptyTrash(){ const n=state.orders.filter(o=>o.stato==='consegnato').length; if(!n)return; if(!confirm('Eliminare definitivamente '+n+' '+(n===1?'ordine':'ordini')+' dal cestino?'))return; state.orders=state.orders.filter(o=>o.stato!=='consegnato'); await Store.saveConfig(); renderClienti(); toast('Cestino svuotato'); }
+async function emptyTrash(){ const ids=state.orders.filter(o=>o.stato==='consegnato').map(o=>o.id); if(!ids.length)return; if(!confirm('Eliminare definitivamente '+ids.length+' '+(ids.length===1?'ordine':'ordini')+' dal cestino?'))return; await Store.deleteMany(ids); renderClienti(); toast('Cestino svuotato'); }
 function editOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
   state.current={ id:o.id, name:o.name, date:o.date, ora:o.ora||'', phone:o.phone||'', note:o.note||'' };
@@ -562,9 +613,15 @@ function toast(msg){ const t=document.getElementById('toast'); document.getEleme
 
 /* ---- Avvio ---- */
 (async function boot(){
-  state = await Store.init();
+  await Store.init();
   shopInput.value = state.shop || 'Pane per i tuoi denti';
-  buildGrid(); renderBanco(); updateCliCount();
+  buildGrid(); renderBanco(); updateCliCount(); setStatus();
+  if(sb){
+    await Store.loadOrders();
+    updateCliCount();
+    if(document.body.classList.contains('v-clienti')) renderClienti();
+    subscribeRealtime();
+  }
 })();
 </script>
 </body>
