@@ -54,7 +54,23 @@
   .view{flex:1 1 auto;min-height:0;width:100%;display:none;}
   .view.active{display:flex;}
   .view-banco{gap:14px;}
-  .view-ordine,.view-clienti,.view-stats{flex-direction:column;overflow-y:auto;}
+  .view-ordine,.view-stats{flex-direction:column;overflow-y:auto;}
+  .view-clienti{flex-direction:row;gap:14px;min-height:0;}
+  .clienti-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:13px;overflow-y:auto;padding-right:2px;}
+  .prod-table{flex:0 0 clamp(280px,28vw,380px);}
+  .pt-head{padding:16px 18px 13px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .pt-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:#f3e9da;}
+  .pt-head span{display:block;font-size:12px;color:var(--wheat);font-weight:700;margin-top:3px;min-height:14px;text-transform:uppercase;letter-spacing:.05em;}
+  .pt-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px 10px;}
+  .pt-list::-webkit-scrollbar{width:7px;} .pt-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:4px;}
+  .pt-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 9px;color:#f3e9da;}
+  .pt-row + .pt-row{border-top:1px solid rgba(255,255,255,.06);}
+  .pt-name{font-size:14.5px;font-weight:500;min-width:0;}
+  .pt-qty{flex:0 0 auto;min-width:34px;height:30px;padding:0 8px;border-radius:9px;background:var(--wheat);color:var(--crust-2);font-weight:800;font-size:15px;display:grid;place-items:center;font-variant-numeric:tabular-nums;}
+  .pt-empty{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(243,233,218,.4);font-size:14px;text-align:center;padding:20px;}
+  .pt-foot{flex:0 0 auto;padding:14px 18px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;}
+  .pt-foot .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(243,233,218,.6);font-weight:600;}
+  .pt-foot #ptTotal{font-family:'Fraunces',serif;font-weight:900;font-size:28px;color:#fff;font-variant-numeric:tabular-nums;}
 
   .grid{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:12px;}
   .tile{position:relative;background:var(--paper);border-radius:20px;border:1.5px solid var(--line-soft);padding:14px 15px 13px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;box-shadow:0 3px 0 rgba(54,35,26,.06), 0 8px 22px rgba(54,35,26,.05);transition:transform .15s, box-shadow .25s, border-color .25s, background .25s;opacity:0;transform:translateY(12px);animation:rise .5s forwards;}
@@ -261,7 +277,7 @@
 
     <!-- CLIENTI -->
     <section class="view view-clienti" id="viewClienti">
-      <div class="list-wrap">
+      <div class="clienti-left">
         <div class="list-head"><h2>Clienti</h2><input id="search" class="search" placeholder="Cerca per nome o telefono..." oninput="renderClienti()"></div>
         <div class="filters" id="filters">
           <button class="chip-f active" data-st="all">Tutti</button>
@@ -273,6 +289,11 @@
         <div class="summary" id="summary"></div>
         <div class="client-list" id="clientList"></div>
       </div>
+      <aside class="prod-table" id="prodTable">
+        <div class="pt-head"><h2>Per prodotto</h2><span id="ptSub"></span></div>
+        <div class="pt-list" id="ptList"></div>
+        <div class="pt-foot"><span class="lbl">Totale</span><span id="ptTotal">0</span></div>
+      </aside>
     </section>
 
     <!-- STATISTICHE -->
@@ -576,6 +597,8 @@ function renderClienti(){
     return true;
   });
 
+  renderProdTable(orders);
+
   if(inTrash){
     if(orders.length){ summary.className='summary trash show'; summary.innerHTML=`<div class="s-orders">${orders.length} ${orders.length===1?'ordine':'ordini'} nel cestino</div><button class="empty-trash" onclick="emptyTrash()">Svuota cestino</button>`; }
     else summary.className='summary';
@@ -628,6 +651,18 @@ function renderClienti(){
 }
 async function advanceStato(id){ const o=state.orders.find(x=>x.id===id); if(!o)return; await Store.setStato(id, nextStato(o.stato)); renderClienti(); }
 async function markDelivered(id){ await Store.setStato(id,'consegnato'); updateCliCount(); renderClienti(); toast('Consegnato \u2192 nel cestino'); }
+function renderProdTable(orders){
+  const prod={}; let tot=0;
+  orders.forEach(o=>{ (o.items||[]).forEach(it=>{ prod[it.name]=(prod[it.name]||0)+it.qty; }); tot+=o.pieces||0; });
+  const entries=Object.entries(prod).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+  const lbl = filtroStato==='cestino'?'Nel cestino':(filtroStato==='da_preparare'?'Da preparare':(filtroStato==='pronto'?'Pronti':'Ordini attivi'));
+  document.getElementById('ptSub').textContent = entries.length ? lbl : '';
+  document.getElementById('ptTotal').textContent = tot;
+  const list=document.getElementById('ptList');
+  list.innerHTML = entries.length===0
+    ? `<div class="pt-empty">Nessun prodotto</div>`
+    : entries.map(([n,q])=>`<div class="pt-row"><span class="pt-name">${escHtml(n)}</span><span class="pt-qty">${q}</span></div>`).join('');
+}
 async function restoreOrder(id){ await Store.setStato(id,'programmato'); updateCliCount(); renderClienti(); toast('Ordine ripristinato'); }
 async function deleteOrder(id){ await Store.deleteOrder(id); updateCliCount(); renderClienti(); }
 async function trashDelete(id){
