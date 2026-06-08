@@ -43,7 +43,7 @@
   .cloud .cdot{width:9px;height:9px;border-radius:50%;background:var(--muted-2);transition:background .3s,box-shadow .3s;}
   .cloud.online{color:var(--good);} .cloud.online .cdot{background:var(--good);box-shadow:0 0 0 3px rgba(91,140,62,.2);}
   .cloud.off{color:var(--bad);} .cloud.off .cdot{background:var(--bad);}
-  .nav button{font-family:inherit;font-weight:700;font-size:15px;border:none;background:transparent;color:var(--muted);padding:11px 18px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:background .18s,color .18s,transform .1s;}
+  .nav button{font-family:inherit;font-weight:700;font-size:15px;border:none;background:transparent;color:var(--muted);padding:11px 15px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .18s,color .18s,transform .1s;}
   .nav button:active{transform:scale(.96);}
   .nav button.active{background:var(--crust);color:var(--paper);box-shadow:0 3px 10px rgba(54,35,26,.25);}
   .nav button svg{width:17px;height:17px;}
@@ -54,7 +54,7 @@
   .view{flex:1 1 auto;min-height:0;width:100%;display:none;}
   .view.active{display:flex;}
   .view-banco{gap:14px;}
-  .view-ordine,.view-clienti{flex-direction:column;overflow-y:auto;}
+  .view-ordine,.view-clienti,.view-stats{flex-direction:column;overflow-y:auto;}
 
   .grid{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:12px;}
   .tile{position:relative;background:var(--paper);border-radius:20px;border:1.5px solid var(--line-soft);padding:14px 15px 13px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;box-shadow:0 3px 0 rgba(54,35,26,.06), 0 8px 22px rgba(54,35,26,.05);transition:transform .15s, box-shadow .25s, border-color .25s, background .25s;opacity:0;transform:translateY(12px);animation:rise .5s forwards;}
@@ -180,6 +180,9 @@
   .empty-trash:active{transform:scale(.96);}
   .act.ok{background:#d6ecc4;border-color:#bcdca0;color:#3d6b1f;}
   .act.restore{border-color:var(--line);}
+  .stats-tot{font-size:14.5px;color:var(--muted);font-weight:600;}
+  .stats-tot b{color:var(--wheat-deep);font-size:17px;}
+  .stats-list{display:flex;flex-direction:column;gap:12px;}
 
   #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:50;background:var(--crust);color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;font-size:15px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;display:flex;align-items:center;gap:9px;}
   #toast.show{opacity:1;transform:translate(-50%,0);}
@@ -202,6 +205,7 @@
       <button id="navBanco" class="active" onclick="showView('banco')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Banco</button>
       <button id="navOrdine" onclick="showView('ordine')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1Z"/><path d="M9 5h6"/><path d="M8 11h8M8 15h5"/></svg>Ordine</button>
       <button id="navClienti" onclick="showView('clienti')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 20a5.5 5.5 0 0 0-3-4.9"/></svg>Clienti <span class="count" id="cliCount" style="display:none">0</span></button>
+      <button id="navStats" onclick="showView('stats')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7" rx="1"/><rect x="10.3" y="6" width="3.4" height="12" rx="1"/><rect x="15.6" y="14" width="3.4" height="4" rx="1"/></svg>Statistiche</button>
     </nav>
     </div>
   </header>
@@ -270,7 +274,14 @@
         <div class="client-list" id="clientList"></div>
       </div>
     </section>
-  </main>
+
+    <!-- STATISTICHE -->
+    <section class="view view-stats" id="viewStats">
+      <div class="list-wrap">
+        <div class="list-head"><h2>Statistiche</h2><div class="stats-tot" id="statsTot"></div></div>
+        <div class="stats-list" id="statsList"></div>
+      </div>
+    </section>
 </div>
 
 <div id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
@@ -290,6 +301,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_Hi9yRrHX9MKWrpWe51vVIQ_HSZTWHmp';   //
 
 const LS_CONFIG = 'panificio_cfg_v1';                 // insegna + prodotti + ordine in corso
 const LS_ORDERS = 'panificio_ordini_cache_v1';        // copia locale degli ordini (offline)
+const LS_VENDITE = 'panificio_vendite_cache_v1';      // copia locale delle statistiche
 function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 
@@ -314,7 +326,7 @@ const Store = {
     if(!cfg) cfg = { shop:'Pane per i tuoi denti', products:DEFAULTS.map(p=>({...p,qty:0})), current:newCurrent() };
     if(!cfg.current) cfg.current = newCurrent();
     if(!cfg.current.date) cfg.current.date = today();
-    state = { shop:cfg.shop||'Pane per i tuoi denti', products:cfg.products, current:cfg.current, orders:Array.isArray(cache)?cache:[] };
+    state = { shop:cfg.shop||'Pane per i tuoi denti', products:cfg.products, current:cfg.current, orders:Array.isArray(cache)?cache:[], vendite:(()=>{ const c=readJSON(LS_VENDITE); return Array.isArray(c)?c:[]; })() };
     state.orders.forEach(o=>{ if(!o.stato) o.stato='programmato'; });
     if(window.supabase && SUPABASE_URL.indexOf('INSERISCI')<0){
       try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb=null; }
@@ -353,6 +365,21 @@ const Store = {
   async setStato(id,st){
     const o=state.orders.find(x=>x.id===id); if(o){ o.stato=st; writeJSON(LS_ORDERS, state.orders); }
     if(sb){ const { error } = await sb.from('ordini').update({stato:st}).eq('id',id); if(error){ toast('Aggiornamento cloud fallito'); console.error(error); } }
+  },
+  async loadVendite(){
+    if(!sb) return;
+    try{
+      const { data, error } = await sb.from('vendite').select('*').order('data',{ascending:false});
+      if(error) throw error;
+      state.vendite = data; writeJSON(LS_VENDITE, state.vendite);
+    }catch(e){ console.error('Supabase vendite:', e.message||e); }
+  },
+  async archive(arr){
+    const rows = arr.map(o=>({ id:o.id, data:o.date||today(), nome:o.name, pezzi:o.pieces, items:o.items, archived_at:new Date().toISOString() }));
+    state.vendite = state.vendite || [];
+    rows.forEach(r=>{ if(!state.vendite.find(v=>v.id===r.id)) state.vendite.unshift(r); });
+    writeJSON(LS_VENDITE, state.vendite);
+    if(sb){ const { error } = await sb.from('vendite').upsert(rows); if(error){ toast('Archiviazione cloud fallita'); console.error(error); } }
   },
 };
 function setStatus(){
@@ -403,7 +430,7 @@ shopInput.addEventListener('input', ()=>{ state.shop = shopInput.value; Store.sa
 
 /* ---- Navigazione viste ---- */
 function showView(name){
-  ['banco','ordine','clienti'].forEach(v=>{
+  ['banco','ordine','clienti','stats'].forEach(v=>{
     const cap=v[0].toUpperCase()+v.slice(1);
     document.getElementById('view'+cap).classList.toggle('active', v===name);
     document.getElementById('nav'+cap).classList.toggle('active', v===name);
@@ -411,6 +438,7 @@ function showView(name){
   document.body.className='v-'+name;
   if(name==='ordine') renderOrdine();
   if(name==='clienti'){ document.getElementById('search').value=''; renderClienti(); }
+  if(name==='stats'){ renderStats(); refreshVendite(); }
   if(name!=='banco' && editing) toggleEdit();
 }
 
@@ -573,7 +601,7 @@ function renderClienti(){
     if(inTrash){
       statusEl=`<span class="status consegnato"><span class="dot"></span>Consegnato</span>`;
       actions=`<button class="act restore" onclick="restoreOrder('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-9.3L3 7"/></svg>Ripristina</button>
-        <button class="act del" onclick="deleteOrder('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Elimina</button>`;
+        <button class="act del" onclick="trashDelete('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>Elimina</button>`;
     }else{
       const wa=waLink(o);
       const waBtn=wa?`<a class="act wa" href="${wa}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.4 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .1-1.7-.1-.4-.1-.9-.3-1.6-.6-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2.1.4 0 .5l-.3.5c-.1.2-.3.3-.1.6.1.3.7 1.1 1.4 1.7.9.8 1.7 1.1 2 1.2.2.1.4.1.5-.1l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.5.3.1.2.1.6-.1 1.3Z"/></svg>WhatsApp</a>`:'';
@@ -602,7 +630,40 @@ async function advanceStato(id){ const o=state.orders.find(x=>x.id===id); if(!o)
 async function markDelivered(id){ await Store.setStato(id,'consegnato'); updateCliCount(); renderClienti(); toast('Consegnato \u2192 nel cestino'); }
 async function restoreOrder(id){ await Store.setStato(id,'programmato'); updateCliCount(); renderClienti(); toast('Ordine ripristinato'); }
 async function deleteOrder(id){ await Store.deleteOrder(id); updateCliCount(); renderClienti(); }
-async function emptyTrash(){ const ids=state.orders.filter(o=>o.stato==='consegnato').map(o=>o.id); if(!ids.length)return; if(!confirm('Eliminare definitivamente '+ids.length+' '+(ids.length===1?'ordine':'ordini')+' dal cestino?'))return; await Store.deleteMany(ids); renderClienti(); toast('Cestino svuotato'); }
+async function trashDelete(id){
+  const o=state.orders.find(x=>x.id===id); if(!o)return;
+  await Store.archive([o]);
+  await Store.deleteOrder(id);
+  updateCliCount(); renderClienti(); toast('Archiviato nelle statistiche');
+}
+async function emptyTrash(){ const dels=state.orders.filter(o=>o.stato==='consegnato'); if(!dels.length)return; if(!confirm('Archiviare nelle statistiche ed eliminare '+dels.length+' '+(dels.length===1?'ordine':'ordini')+' dal cestino?'))return; await Store.archive(dels); await Store.deleteMany(dels.map(o=>o.id)); renderClienti(); toast('Archiviati nelle statistiche'); }
+
+/* ---- Statistiche ---- */
+async function refreshVendite(){ await Store.loadVendite(); renderStats(); }
+function renderStats(){
+  const v = state.vendite || [];
+  const byDay = {}; let grand=0;
+  v.forEach(r=>{ const d=r.data||'—'; if(!byDay[d]) byDay[d]={pieces:0,orders:0,prod:{}}; byDay[d].pieces+=r.pezzi||0; byDay[d].orders++; (r.items||[]).forEach(it=>{ byDay[d].prod[it.name]=(byDay[d].prod[it.name]||0)+it.qty; }); grand+=r.pezzi||0; });
+  const days = Object.keys(byDay).sort((a,b)=>b.localeCompare(a));
+  document.getElementById('statsTot').innerHTML = days.length ? `Totale venduto: <b>${grand}</b> pezzi · ${days.length} ${days.length===1?'giorno':'giorni'}` : '';
+  const list=document.getElementById('statsList');
+  if(days.length===0){
+    list.innerHTML=`<div class="list-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7" rx="1"/><rect x="10.3" y="6" width="3.4" height="12" rx="1"/><rect x="15.6" y="14" width="3.4" height="4" rx="1"/></svg><p>Ancora nessuna vendita registrata.<br>Gli ordini eliminati dal cestino finiscono qui.</p></div>`;
+    return;
+  }
+  list.innerHTML = days.map(d=>{
+    const day=byDay[d];
+    const prods=Object.entries(day.prod).sort((a,b)=>b[1]-a[1]);
+    const chips=prods.map(([n,qy])=>`<span class="chip"><b>${qy}\u00d7</b>${escHtml(n)}</span>`).join('');
+    return `<div class="ord-card">
+      <div class="oc-head">
+        <div class="oc-main"><div class="oc-name">${fmtDate(d)}</div><div class="oc-meta">${day.orders} ${day.orders===1?'ordine':'ordini'}</div></div>
+        <div class="oc-pieces">${day.pieces}<small>pezzi</small></div>
+      </div>
+      <div class="oc-items">${chips}</div>
+    </div>`;
+  }).join('');
+}
 function editOrder(id){
   const o=state.orders.find(x=>x.id===id); if(!o)return;
   state.current={ id:o.id, name:o.name, date:o.date, ora:o.ora||'', phone:o.phone||'', note:o.note||'' };
