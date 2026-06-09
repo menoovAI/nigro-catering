@@ -114,10 +114,8 @@
   </header>
 
   <div class="filters" id="filters">
-    <button class="chip-f active" data-st="da_preparare">Da preparare <span class="n" id="nPrep"></span></button>
-    <button class="chip-f" data-st="programmato">Programmati <span class="n" id="nProg"></span></button>
-    <button class="chip-f" data-st="pronto">Pronti <span class="n" id="nPronto"></span></button>
-    <button class="chip-f" data-st="all">Tutti</button>
+    <button class="chip-f active" data-when="today">Da produrre oggi <span class="n" id="nToday"></span></button>
+    <button class="chip-f" data-when="later">Da preparare successivamente <span class="n" id="nLater"></span></button>
   </div>
 
   <main>
@@ -140,12 +138,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_Hi9yRrHX9MKWrpWe51vVIQ_HSZTWHmp';
 const LS_ORDERS = 'laboratorio_ordini_cache_v1';
 
 const STATI = { programmato:'Programmato', da_preparare:'Da preparare', pronto:'Pronto' };
-let sb=null, online=false, orders=[], filtro='da_preparare', firstLoad=true;
+let sb=null, online=false, orders=[], when='today';
 
 function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function fmtDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
+function today(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
 function fromRow(r){ return { id:r.id, name:r.nome, date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[] }; }
 
 /* ---- Audio ---- */
@@ -184,17 +183,17 @@ async function setStato(id, st){
 
 /* ---- Render ---- */
 function shown(){
-  let arr = orders.filter(o=> o.stato!=='consegnato' && (filtro==='all' || o.stato===filtro));
+  const t=today();
+  let arr = orders.filter(o=> o.stato!=='consegnato' && o.stato!=='pronto' && (when==='today' ? (o.date||'')<=t : (o.date||'')>t));
   arr.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.ora||'').localeCompare(b.ora||''));
   return arr;
 }
 function render(){
-  // contatori filtri
-  const c={programmato:0,da_preparare:0,pronto:0};
-  orders.forEach(o=>{ if(c[o.stato]!=null) c[o.stato]++; });
-  document.getElementById('nProg').textContent=c.programmato||'';
-  document.getElementById('nPrep').textContent=c.da_preparare||'';
-  document.getElementById('nPronto').textContent=c.pronto||'';
+  // contatori filtri (per data)
+  const tdy=today(); let nT=0,nL=0;
+  orders.forEach(o=>{ if(o.stato==='consegnato'||o.stato==='pronto') return; if((o.date||'')<=tdy) nT++; else nL++; });
+  document.getElementById('nToday').textContent=nT||'';
+  document.getElementById('nLater').textContent=nL||'';
 
   const arr=shown();
   const box=document.getElementById('orders');
@@ -205,10 +204,7 @@ function render(){
       const meta=[fmtDate(o.date), o.ora].filter(Boolean).join(' &middot; ');
       const note=o.note?`<div class="lc-note">${escHtml(o.note)}</div>`:'';
       const chips=o.items.map(it=>`<span class="chip"><b>${it.qty}\u00d7</b>${escHtml(it.name)}</span>`).join('');
-      let action='';
-      if(o.stato==='programmato') action=`<button class="btn btn-go" onclick="setStato('${o.id}','da_preparare')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Inizia a preparare</button>`;
-      else if(o.stato==='da_preparare') action=`<button class="btn btn-ready" onclick="setStato('${o.id}','pronto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Segna pronto</button>`;
-      else if(o.stato==='pronto') action=`<button class="btn btn-ghost" onclick="setStato('${o.id}','da_preparare')">↩ Rimetti da preparare</button>`;
+      const action=`<button class="btn btn-ready" onclick="setStato('${o.id}','pronto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Segna pronto</button>`;
       return `<div class="lab-card">
         <div class="lc-head">
           <div class="lc-main">
@@ -229,7 +225,7 @@ function render(){
   const prod={}; let tot=0;
   arr.forEach(o=>{ o.items.forEach(it=>{ prod[it.name]=(prod[it.name]||0)+it.qty; }); tot+=o.pieces||0; });
   const entries=Object.entries(prod).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
-  const lbl = filtro==='programmato'?'Programmati':(filtro==='pronto'?'Pronti':(filtro==='all'?'Tutti gli attivi':'Da preparare'));
+  const lbl = when==='today'?'Oggi':'Giorni successivi';
   document.getElementById('boardSub').textContent = entries.length?lbl:'';
   document.getElementById('boardTot').textContent = tot;
   document.getElementById('boardList').innerHTML = entries.length===0
@@ -240,7 +236,7 @@ function render(){
 /* ---- Filtri ---- */
 document.getElementById('filters').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b)return;
-  filtro=b.dataset.st;
+  when=b.dataset.when;
   document.querySelectorAll('#filters .chip-f').forEach(x=>x.classList.toggle('active',x===b));
   render();
 });
