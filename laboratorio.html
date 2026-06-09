@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Laboratorio — Pane per i tuoi denti</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --flour:#f1e8d8; --flour-2:#eaddc7; --paper:#fcf8ef;
+    --crust:#36231a; --crust-2:#27160f;
+    --wheat:#e0a233; --wheat-deep:#bb7c14;
+    --ink:#2c1f16; --muted:#9a8870; --muted-2:#bcae98;
+    --line:rgba(54,35,26,.12); --line-soft:rgba(54,35,26,.07);
+    --good:#5b8c3e; --bad:#b4452f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  body{font-family:'Bricolage Grotesque',system-ui,sans-serif;color:var(--ink);
+    background:radial-gradient(120% 80% at 0% 0%, #f6efe1 0%, transparent 55%),
+      radial-gradient(120% 90% at 100% 100%, #ecdfc8 0%, transparent 55%), var(--flour);
+    overflow:hidden;-webkit-font-smoothing:antialiased;}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.4;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");mix-blend-mode:multiply;}
+
+  .app{position:relative;z-index:1;height:100vh;width:100vw;display:flex;flex-direction:column;padding:14px;gap:12px;}
+
+  header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:4px 4px 2px;}
+  .brand{display:flex;align-items:center;gap:13px;min-width:0;}
+  .seal{width:52px;height:52px;flex:0 0 auto;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #f0c463, var(--wheat) 55%, var(--wheat-deep));
+    display:grid;place-items:center;color:var(--crust-2);box-shadow:0 6px 16px rgba(187,124,20,.35), inset 0 2px 6px rgba(255,255,255,.45);}
+  .seal svg{width:30px;height:30px;}
+  .title{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(20px,2.7vh,30px);line-height:1;color:var(--crust);letter-spacing:-.01em;}
+  .sub{font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.18em;text-transform:uppercase;margin-top:4px;}
+  .head-right{display:flex;align-items:center;gap:12px;}
+  .clock{text-align:right;}
+  .clock .t{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(20px,3vh,30px);color:var(--crust);line-height:1;font-variant-numeric:tabular-nums;}
+  .clock .d{font-size:12px;color:var(--muted);font-weight:600;text-transform:capitalize;margin-top:3px;}
+  .cloud{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--muted);background:var(--paper);border:1.5px solid var(--line-soft);border-radius:13px;padding:10px 14px;}
+  .cloud .cdot{width:9px;height:9px;border-radius:50%;background:var(--muted-2);transition:background .3s,box-shadow .3s;}
+  .cloud.online{color:var(--good);} .cloud.online .cdot{background:var(--good);box-shadow:0 0 0 3px rgba(91,140,62,.2);}
+  .cloud.off{color:var(--bad);} .cloud.off .cdot{background:var(--bad);}
+
+  .filters{flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:0 2px;}
+  .chip-f{font-family:inherit;font-weight:700;font-size:14.5px;border:1.5px solid var(--line);background:var(--paper);color:var(--muted);border-radius:12px;padding:11px 18px;cursor:pointer;transition:.15s;}
+  .chip-f.active{background:var(--crust);border-color:var(--crust);color:var(--paper);}
+  .chip-f .n{opacity:.7;font-weight:600;margin-left:4px;}
+
+  main{flex:1 1 auto;min-height:0;display:flex;gap:14px;}
+  .lab-orders{flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:13px;padding-right:2px;}
+  .lab-card{background:var(--paper);border:1.5px solid var(--line-soft);border-radius:20px;padding:18px 20px;box-shadow:0 4px 16px rgba(54,35,26,.06);animation:rise .35s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+  .lab-card.is-new{animation:flash 1.2s ease;}
+  @keyframes flash{0%{box-shadow:0 0 0 3px var(--wheat), 0 4px 16px rgba(54,35,26,.06);}100%{box-shadow:0 4px 16px rgba(54,35,26,.06);}}
+  .lc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .lc-main{min-width:0;display:flex;flex-direction:column;gap:7px;align-items:flex-start;}
+  .lc-name{font-family:'Fraunces',serif;font-weight:600;font-size:23px;color:var(--crust);line-height:1.05;}
+  .lc-meta{font-size:14.5px;color:var(--muted);font-weight:500;}
+  .lc-pieces{flex:0 0 auto;text-align:center;font-family:'Fraunces',serif;font-weight:900;font-size:30px;color:var(--wheat-deep);line-height:1;}
+  .lc-pieces small{display:block;font-family:'Bricolage Grotesque',sans-serif;font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-top:2px;}
+  .status{display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:13px;font-weight:800;padding:6px 12px;border-radius:9px;}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:currentColor;}
+  .status.programmato{background:#dde3ea;color:#54677d;}
+  .status.da_preparare{background:#f6e2b8;color:#8a5a08;}
+  .status.pronto{background:#d6ecc4;color:#3d6b1f;}
+  .lc-note{margin-top:12px;background:var(--flour);border-left:3px solid var(--wheat);border-radius:8px;padding:10px 13px;font-size:15px;color:var(--ink);font-style:italic;}
+  .lc-items{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px;}
+  .chip{background:var(--flour-2);border-radius:11px;padding:9px 14px;font-size:16px;font-weight:600;color:var(--ink);}
+  .chip b{color:var(--wheat-deep);margin-right:4px;font-size:17px;}
+  .lc-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+  .btn{font-family:inherit;font-weight:800;font-size:16px;border:none;border-radius:13px;padding:14px 22px;cursor:pointer;display:inline-flex;align-items:center;gap:9px;transition:transform .1s,background .2s;}
+  .btn:active{transform:scale(.96);} .btn svg{width:19px;height:19px;}
+  .btn-go{background:linear-gradient(180deg,#ecb34a,var(--wheat));color:var(--crust-2);box-shadow:0 4px 12px rgba(187,124,20,.3);}
+  .btn-ready{background:linear-gradient(180deg,#7cb85a,#5b8c3e);color:#fff;box-shadow:0 4px 12px rgba(91,140,62,.3);}
+  .btn-ghost{background:var(--paper);color:var(--crust);border:1.5px solid var(--line);font-size:14.5px;padding:12px 16px;}
+
+  .lab-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted-2);text-align:center;}
+  .lab-empty svg{width:64px;height:64px;opacity:.5;} .lab-empty p{font-size:16px;font-weight:500;color:var(--muted);}
+
+  .lab-board{flex:0 0 clamp(300px,30vw,420px);background:linear-gradient(180deg,var(--crust),var(--crust-2));border-radius:22px;display:flex;flex-direction:column;color:#f3e9da;overflow:hidden;box-shadow:0 14px 36px rgba(39,22,15,.32);}
+  .lb-head{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .lb-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:22px;}
+  .lb-head span{display:block;font-size:12px;color:var(--wheat);font-weight:700;margin-top:4px;text-transform:uppercase;letter-spacing:.05em;min-height:14px;}
+  .lb-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 12px;}
+  .lb-list::-webkit-scrollbar{width:7px;} .lb-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:4px;}
+  .lb-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 8px;}
+  .lb-row + .lb-row{border-top:1px solid rgba(255,255,255,.07);}
+  .lb-name{font-size:17px;font-weight:500;min-width:0;}
+  .lb-qty{flex:0 0 auto;min-width:44px;height:40px;padding:0 10px;border-radius:11px;background:var(--wheat);color:var(--crust-2);font-weight:800;font-size:20px;display:grid;place-items:center;font-variant-numeric:tabular-nums;}
+  .lb-empty{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(243,233,218,.4);font-size:15px;text-align:center;padding:24px;}
+  .lb-foot{flex:0 0 auto;padding:16px 20px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;}
+  .lb-foot .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(243,233,218,.6);font-weight:600;}
+  .lb-foot .tot{font-family:'Fraunces',serif;font-weight:900;font-size:34px;color:#fff;font-variant-numeric:tabular-nums;}
+
+  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);z-index:50;background:var(--crust);color:#fff;padding:15px 24px;border-radius:14px;font-weight:700;font-size:16px;box-shadow:0 10px 30px rgba(0,0,0,.3);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;display:flex;align-items:center;gap:10px;}
+  #toast.show{opacity:1;transform:translate(-50%,0);}
+  #toast svg{width:20px;height:20px;color:var(--wheat);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="seal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M12 6c0-2 2-3 4-2M12 6c0-2-2-3-4-2M12 11c0-2 2-3 4-2M12 11c0-2-2-3-4-2M12 16c0-2 2-3 4-2M12 16c0-2-2-3-4-2"/></svg></div>
+      <div><div class="title">Laboratorio</div><div class="sub">Pane per i tuoi denti</div></div>
+    </div>
+    <div class="head-right">
+      <div class="clock"><div class="t" id="clockT">--:--</div><div class="d" id="clockD"></div></div>
+      <div class="cloud" id="cloudStatus"><span class="cdot"></span><span id="cloudTxt">Locale</span></div>
+    </div>
+  </header>
+
+  <div class="filters" id="filters">
+    <button class="chip-f active" data-st="da_preparare">Da preparare <span class="n" id="nPrep"></span></button>
+    <button class="chip-f" data-st="programmato">Programmati <span class="n" id="nProg"></span></button>
+    <button class="chip-f" data-st="pronto">Pronti <span class="n" id="nPronto"></span></button>
+    <button class="chip-f" data-st="all">Tutti</button>
+  </div>
+
+  <main>
+    <div class="lab-orders" id="orders"></div>
+    <aside class="lab-board">
+      <div class="lb-head"><h2>Da produrre</h2><span id="boardSub"></span></div>
+      <div class="lb-list" id="boardList"></div>
+      <div class="lb-foot"><span class="lbl">Totale pezzi</span><span class="tot" id="boardTot">0</span></div>
+    </aside>
+  </main>
+</div>
+
+<div id="toast"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Stesso progetto Supabase dell'app del banco */
+const SUPABASE_URL      = 'https://jjcseaerqvdvurptgnwy.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Hi9yRrHX9MKWrpWe51vVIQ_HSZTWHmp';
+const LS_ORDERS = 'laboratorio_ordini_cache_v1';
+
+const STATI = { programmato:'Programmato', da_preparare:'Da preparare', pronto:'Pronto' };
+let sb=null, online=false, orders=[], filtro='da_preparare', firstLoad=true;
+
+function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
+function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function fmtDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
+function fromRow(r){ return { id:r.id, name:r.nome, date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[] }; }
+
+/* ---- Audio ---- */
+let audioCtx=null;
+function unlockAudio(){ try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; } if(audioCtx.state==='suspended') audioCtx.resume(); }
+document.addEventListener('pointerdown', unlockAudio);
+function beep(){
+  try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  const now=audioCtx.currentTime;
+  [[0,880],[0.16,1175]].forEach(([t,f])=>{ const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type='sine'; o.frequency.value=f; g.gain.setValueAtTime(0,now+t); g.gain.linearRampToValueAtTime(0.3,now+t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,now+t+0.15); o.connect(g); g.connect(audioCtx.destination); o.start(now+t); o.stop(now+t+0.16); });
+}
+
+let toastT;
+function toast(msg){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+
+function setStatus(){ const el=document.getElementById('cloudStatus'), t=document.getElementById('cloudTxt'); if(!sb){ el.className='cloud'; t.textContent='Locale'; } else if(online){ el.className='cloud online'; t.textContent='Cloud'; } else { el.className='cloud off'; t.textContent='Offline'; } }
+
+/* ---- Orologio ---- */
+function tick(){ const d=new Date(); document.getElementById('clockT').textContent=d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); document.getElementById('clockD').textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }
+
+/* ---- Dati ---- */
+async function loadOrders(){
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.from('ordini').select('*').neq('stato','consegnato');
+    if(error) throw error;
+    online=true; orders=data.map(fromRow); writeJSON(LS_ORDERS, orders);
+  }catch(e){ online=false; console.error('Supabase:', e.message||e); }
+  setStatus();
+}
+async function setStato(id, st){
+  const o=orders.find(x=>x.id===id); if(o) o.stato=st; writeJSON(LS_ORDERS, orders); render();
+  if(sb){ const { error } = await sb.from('ordini').update({stato:st}).eq('id',id); if(error){ toast('Aggiornamento cloud fallito'); console.error(error); } }
+}
+
+/* ---- Render ---- */
+function shown(){
+  let arr = orders.filter(o=> o.stato!=='consegnato' && (filtro==='all' || o.stato===filtro));
+  arr.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.ora||'').localeCompare(b.ora||''));
+  return arr;
+}
+function render(){
+  // contatori filtri
+  const c={programmato:0,da_preparare:0,pronto:0};
+  orders.forEach(o=>{ if(c[o.stato]!=null) c[o.stato]++; });
+  document.getElementById('nProg').textContent=c.programmato||'';
+  document.getElementById('nPrep').textContent=c.da_preparare||'';
+  document.getElementById('nPronto').textContent=c.pronto||'';
+
+  const arr=shown();
+  const box=document.getElementById('orders');
+  if(arr.length===0){
+    box.innerHTML=`<div class="lab-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg><p>Nessun ordine in questa lista.</p></div>`;
+  }else{
+    box.innerHTML=arr.map(o=>{
+      const meta=[fmtDate(o.date), o.ora].filter(Boolean).join(' &middot; ');
+      const note=o.note?`<div class="lc-note">${escHtml(o.note)}</div>`:'';
+      const chips=o.items.map(it=>`<span class="chip"><b>${it.qty}\u00d7</b>${escHtml(it.name)}</span>`).join('');
+      let action='';
+      if(o.stato==='programmato') action=`<button class="btn btn-go" onclick="setStato('${o.id}','da_preparare')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Inizia a preparare</button>`;
+      else if(o.stato==='da_preparare') action=`<button class="btn btn-ready" onclick="setStato('${o.id}','pronto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Segna pronto</button>`;
+      else if(o.stato==='pronto') action=`<button class="btn btn-ghost" onclick="setStato('${o.id}','da_preparare')">↩ Rimetti da preparare</button>`;
+      return `<div class="lab-card">
+        <div class="lc-head">
+          <div class="lc-main">
+            <div class="lc-name">${escHtml(o.name)}</div>
+            <div class="lc-meta">${meta||'&nbsp;'}</div>
+            <span class="status ${o.stato}"><span class="dot"></span>${STATI[o.stato]||''}</span>
+          </div>
+          <div class="lc-pieces">${o.pieces}<small>pezzi</small></div>
+        </div>
+        ${note}
+        <div class="lc-items">${chips}</div>
+        <div class="lc-actions">${action}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // tabella per prodotto (da produrre)
+  const prod={}; let tot=0;
+  arr.forEach(o=>{ o.items.forEach(it=>{ prod[it.name]=(prod[it.name]||0)+it.qty; }); tot+=o.pieces||0; });
+  const entries=Object.entries(prod).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
+  const lbl = filtro==='programmato'?'Programmati':(filtro==='pronto'?'Pronti':(filtro==='all'?'Tutti gli attivi':'Da preparare'));
+  document.getElementById('boardSub').textContent = entries.length?lbl:'';
+  document.getElementById('boardTot').textContent = tot;
+  document.getElementById('boardList').innerHTML = entries.length===0
+    ? `<div class="lb-empty">Nessun prodotto da produrre</div>`
+    : entries.map(([n,q])=>`<div class="lb-row"><span class="lb-name">${escHtml(n)}</span><span class="lb-qty">${q}</span></div>`).join('');
+}
+
+/* ---- Filtri ---- */
+document.getElementById('filters').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  filtro=b.dataset.st;
+  document.querySelectorAll('#filters .chip-f').forEach(x=>x.classList.toggle('active',x===b));
+  render();
+});
+
+/* ---- Realtime ---- */
+function subscribe(){
+  if(!sb) return;
+  sb.channel('lab-rt').on('postgres_changes', { event:'*', schema:'public', table:'ordini' }, async (payload)=>{
+    await loadOrders();
+    render();
+    if(payload && payload.eventType==='INSERT' && payload.new){
+      toast('Nuovo ordine: '+(payload.new.nome||'cliente'));
+      beep();
+    }
+  }).subscribe();
+}
+
+/* ---- Avvio ---- */
+(async function boot(){
+  tick(); setInterval(tick, 20000);
+  const cache=readJSON(LS_ORDERS); orders=Array.isArray(cache)?cache:[];
+  render();
+  if(window.supabase && SUPABASE_URL.indexOf('INSERISCI')<0){
+    try{ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb=null; }
+  }
+  setStatus();
+  if(sb){ await loadOrders(); render(); subscribe(); }
+})();
+</script>
+</body>
+</html>
