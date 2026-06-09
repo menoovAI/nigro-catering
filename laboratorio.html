@@ -139,6 +139,8 @@ const LS_ORDERS = 'laboratorio_ordini_cache_v1';
 
 const STATI = { programmato:'Programmato', da_preparare:'Da preparare', pronto:'Pronto' };
 let sb=null, online=false, orders=[], when='today';
+const LS_DONE='laboratorio_fatti_v1';
+let done=new Set(readJSON(LS_DONE)||[]);
 
 function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
@@ -159,7 +161,8 @@ function beep(){
 }
 
 let toastT;
-function toast(msg){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+function toast(msg){ const t=document.getElementById('toast'); t.onclick=null; t.style.pointerEvents='none'; document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600); }
+function toastUndo(id){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent='Fatto — tocca per annullare'; t.classList.add('show'); t.style.pointerEvents='auto'; t.style.cursor='pointer'; t.onclick=()=>{ undoDone(id); t.classList.remove('show'); t.onclick=null; t.style.pointerEvents='none'; }; clearTimeout(toastT); toastT=setTimeout(()=>{ t.classList.remove('show'); t.onclick=null; t.style.pointerEvents='none'; }, 4000); }
 
 function setStatus(){ const el=document.getElementById('cloudStatus'), t=document.getElementById('cloudTxt'); if(!sb){ el.className='cloud'; t.textContent='Locale'; } else if(online){ el.className='cloud online'; t.textContent='Cloud'; } else { el.className='cloud off'; t.textContent='Offline'; } }
 
@@ -173,25 +176,24 @@ async function loadOrders(){
     const { data, error } = await sb.from('ordini').select('*').neq('stato','consegnato');
     if(error) throw error;
     online=true; orders=data.map(fromRow); writeJSON(LS_ORDERS, orders);
+    done=new Set([...done].filter(id=>orders.some(o=>o.id===id))); writeJSON(LS_DONE,[...done]);
   }catch(e){ online=false; console.error('Supabase:', e.message||e); }
   setStatus();
 }
-async function setStato(id, st){
-  const o=orders.find(x=>x.id===id); if(o) o.stato=st; writeJSON(LS_ORDERS, orders); render();
-  if(sb){ const { error } = await sb.from('ordini').update({stato:st}).eq('id',id); if(error){ toast('Aggiornamento cloud fallito'); console.error(error); } }
-}
+function markDone(id){ done.add(id); writeJSON(LS_DONE,[...done]); render(); toastUndo(id); }
+function undoDone(id){ done.delete(id); writeJSON(LS_DONE,[...done]); render(); }
 
 /* ---- Render ---- */
 function shown(){
   const t=today();
-  let arr = orders.filter(o=> o.stato!=='consegnato' && o.stato!=='pronto' && (when==='today' ? (o.date||'')<=t : (o.date||'')>t));
+  let arr = orders.filter(o=> o.stato!=='consegnato' && !done.has(o.id) && (when==='today' ? (o.date||'')<=t : (o.date||'')>t));
   arr.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.ora||'').localeCompare(b.ora||''));
   return arr;
 }
 function render(){
   // contatori filtri (per data)
   const tdy=today(); let nT=0,nL=0;
-  orders.forEach(o=>{ if(o.stato==='consegnato'||o.stato==='pronto') return; if((o.date||'')<=tdy) nT++; else nL++; });
+  orders.forEach(o=>{ if(o.stato==='consegnato'||done.has(o.id)) return; if((o.date||'')<=tdy) nT++; else nL++; });
   document.getElementById('nToday').textContent=nT||'';
   document.getElementById('nLater').textContent=nL||'';
 
@@ -204,13 +206,12 @@ function render(){
       const meta=[fmtDate(o.date), o.ora].filter(Boolean).join(' &middot; ');
       const note=o.note?`<div class="lc-note">${escHtml(o.note)}</div>`:'';
       const chips=o.items.map(it=>`<span class="chip"><b>${it.qty}\u00d7</b>${escHtml(it.name)}</span>`).join('');
-      const action=`<button class="btn btn-ready" onclick="setStato('${o.id}','pronto')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Segna pronto</button>`;
+      const action=`<button class="btn btn-ready" onclick="markDone('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fatto</button>`;
       return `<div class="lab-card">
         <div class="lc-head">
           <div class="lc-main">
             <div class="lc-name">${escHtml(o.name)}</div>
             <div class="lc-meta">${meta||'&nbsp;'}</div>
-            <span class="status ${o.stato}"><span class="dot"></span>${STATI[o.stato]||''}</span>
           </div>
           <div class="lc-pieces">${o.pieces}<small>pezzi</small></div>
         </div>
