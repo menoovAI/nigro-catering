@@ -128,7 +128,7 @@ function today(){const d=new Date();const z=n=>String(n).padStart(2,'0');return 
 function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 function renderMenu(){
-  document.getElementById('menu').innerHTML = `<div class="sec-title">I nostri prodotti</div>` + PRODUCTS.map((name,i)=>`
+  document.getElementById('menu').innerHTML = `<div class="sec-title">Prodotti</div>` + PRODUCTS.map((name,i)=>`
     <div class="item">
       <div class="item-name">${escHtml(name)}</div>
       <div class="item-ctrl" id="ctrl-${i}">${ctrlHtml(i)}</div>
