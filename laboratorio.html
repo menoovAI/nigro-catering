@@ -61,7 +61,7 @@
   .ord-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;}
   .ord-body{flex:1;min-height:0;display:flex;gap:14px;}
   .view-produzione{flex-direction:row;gap:14px;}
-  .view-storico{flex-direction:column;overflow-y:auto;}
+  .view-storico{flex-direction:row;gap:14px;}
 
   .grid{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:12px;}
   .tile{position:relative;background:var(--paper);border-radius:20px;border:1.5px solid var(--line-soft);padding:14px 15px 13px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;box-shadow:0 3px 0 rgba(54,35,26,.06), 0 8px 22px rgba(54,35,26,.05);transition:transform .15s, box-shadow .25s, border-color .25s, background .25s;}
@@ -107,11 +107,26 @@
   .ps-reset{width:100%;padding:11px;border-radius:12px;border:1.5px solid rgba(255,255,255,.18);background:transparent;color:#f3e9da;font-family:inherit;font-weight:700;font-size:14px;cursor:pointer;}
   .ps-reset:active{transform:scale(.97);}
 
-  .storico-wrap{width:100%;max-width:840px;margin:0 auto;display:flex;flex-direction:column;gap:14px;padding:4px 2px 8px;}
-  .list-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
-  .list-head h2{font-family:'Fraunces',serif;font-weight:900;font-size:26px;color:var(--crust);}
-  .stats-tot{font-size:14.5px;color:var(--muted);font-weight:600;} .stats-tot b{color:var(--wheat-deep);font-size:17px;}
+  .storico-left{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:13px;overflow-y:auto;padding-right:2px;}
+  .storico-left h2{font-family:'Fraunces',serif;font-weight:900;font-size:26px;color:var(--crust);}
   .storico-list{display:flex;flex-direction:column;gap:12px;}
+  .stor-panel{flex:0 0 clamp(280px,28vw,380px);background:linear-gradient(180deg,var(--crust),var(--crust-2));border-radius:22px;display:flex;flex-direction:column;color:#f3e9da;overflow:hidden;box-shadow:0 14px 36px rgba(39,22,15,.32);}
+  .sp-head{padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .sp-head h2{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:#f3e9da;}
+  .sp-head span{display:block;font-size:12px;color:var(--wheat);font-weight:700;margin-top:4px;min-height:14px;text-transform:uppercase;letter-spacing:.05em;}
+  .sp-filters{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:8px;}
+  .sp-filters label{font-size:11.5px;font-weight:700;color:rgba(243,233,218,.6);text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px;display:block;}
+  .sp-filters select,.sp-filters input[type=month]{width:100%;font-family:inherit;font-size:14px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:11px;padding:10px 12px;color:#f3e9da;outline:none;}
+  .sp-list{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 12px;}
+  .sp-list::-webkit-scrollbar{width:7px;} .sp-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:4px;}
+  .sp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 9px;color:#f3e9da;}
+  .sp-row + .sp-row{border-top:1px solid rgba(255,255,255,.06);}
+  .sp-name{font-size:14.5px;font-weight:500;min-width:0;}
+  .sp-qty{flex:0 0 auto;min-width:34px;height:30px;padding:0 8px;border-radius:9px;background:var(--wheat);color:var(--crust-2);font-weight:800;font-size:15px;display:grid;place-items:center;font-variant-numeric:tabular-nums;}
+  .sp-foot{flex:0 0 auto;padding:14px 18px;background:rgba(0,0,0,.18);border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;}
+  .sp-foot .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(243,233,218,.6);font-weight:600;}
+  .sp-foot .tot{font-family:'Fraunces',serif;font-weight:900;font-size:28px;color:#fff;font-variant-numeric:tabular-nums;}
+  .sp-empty{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(243,233,218,.4);font-size:14px;text-align:center;padding:20px;}
   .s-card{background:var(--paper);border:1.5px solid var(--line-soft);border-radius:18px;padding:16px 18px;box-shadow:0 4px 14px rgba(54,35,26,.05);}
   .s-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
   .s-date{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--crust);text-transform:capitalize;}
@@ -222,10 +237,21 @@
     </section>
 
     <section class="view view-storico" id="viewStorico">
-      <div class="storico-wrap">
-        <div class="list-head"><h2>Storico produzione</h2><div class="stats-tot" id="storTot"></div></div>
+      <div class="storico-left">
+        <h2>Storico produzione</h2>
         <div class="storico-list" id="storList"></div>
       </div>
+      <aside class="stor-panel">
+        <div class="sp-head"><h2>Statistiche</h2><span id="spSub"></span></div>
+        <div class="sp-filters">
+          <div>
+            <label>Filtra per mese</label>
+            <input type="month" id="spMonth">
+          </div>
+        </div>
+        <div class="sp-list" id="spList"></div>
+        <div class="sp-foot"><span class="lbl">Totale periodo</span><span class="tot" id="spTot">0</span></div>
+      </aside>
     </section>
   </main>
 </div>
@@ -444,7 +470,13 @@ function showView(name){
   view=name;
   ['ordini','produzione','storico'].forEach(v=>{ const cap=v[0].toUpperCase()+v.slice(1); document.getElementById('view'+cap).classList.toggle('active',v===name); document.getElementById('nav'+cap).classList.toggle('active',v===name); });
   if(name==='produzione'){ buildProdGrid(); renderProdSidebar(); refreshProduzione(); }
-  if(name==='storico'){ renderStorico(); loadStorico(); }
+  if(name==='storico'){
+    const d=new Date(); const z=n=>String(n).padStart(2,'0');
+    const cur=d.getFullYear()+'-'+z(d.getMonth()+1);
+    document.getElementById('spMonth').value=cur;
+    document.getElementById('spMonth').addEventListener('input', renderStorico);
+    renderStorico(); loadStorico();
+  }
   if(name!=='produzione' && editingProd) toggleEditProd();
 }
 
@@ -509,15 +541,31 @@ async function loadStorico(){
 }
 function renderStorico(){
   const list=document.getElementById('storList');
-  const grand=storico.reduce((s,r)=>s+(r.totale||0),0);
-  document.getElementById('storTot').innerHTML = storico.length? `Totale prodotto: <b>${grand}</b> pezzi · ${storico.length} ${storico.length===1?'giorno':'giorni'}` : '';
-  if(!storico.length){ list.innerHTML=`<div class="list-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7" rx="1"/><rect x="10.3" y="6" width="3.4" height="12" rx="1"/><rect x="15.6" y="14" width="3.4" height="4" rx="1"/></svg><p>Ancora nessuna produzione registrata.</p></div>`; return; }
-  list.innerHTML = storico.map(r=>{
-    const entries=Object.entries(r.items||{}).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
-    const chips=entries.length? entries.map(([n,q])=>`<span class="chip"><b>${q}\u00d7</b>${escHtml(n)}</span>`).join('') : '<span style="color:var(--muted);font-size:14px">Nessun prodotto</span>';
-    let dlabel; try{ dlabel=new Date(r.data+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ dlabel=fmtDate(r.data); }
-    return `<div class="s-card"><div class="s-head"><span class="s-date">${dlabel}</span><span class="s-tot">${r.totale||0}<small>pezzi</small></span></div><div class="s-items">${chips}</div></div>`;
-  }).join('');
+  const mFilter=document.getElementById('spMonth').value||''; // es. "2026-06"
+  const filtered=mFilter?storico.filter(r=>(r.data||'').startsWith(mFilter)):storico;
+  if(!filtered.length){
+    list.innerHTML=`<div class="list-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7" rx="1"/><rect x="10.3" y="6" width="3.4" height="12" rx="1"/><rect x="15.6" y="14" width="3.4" height="4" rx="1"/></svg><p>${storico.length===0?'Ancora nessuna produzione registrata.':'Nessun dato per questo mese.'}</p></div>`;
+  }else{
+    list.innerHTML=filtered.map(r=>{
+      const entries=Object.entries(r.items||{}).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+      const chips=entries.length?entries.map(([n,q])=>`<span class="chip"><b>${q}\u00d7</b>${escHtml(n)}</span>`).join(''):'<span style="color:var(--muted);font-size:14px">Nessun prodotto</span>';
+      let dlabel; try{ dlabel=new Date(r.data+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ dlabel=fmtDate(r.data); }
+      return `<div class="s-card"><div class="s-head"><span class="s-date">${dlabel}</span><span class="s-tot">${r.totale||0}<small>pezzi</small></span></div><div class="s-items">${chips}</div></div>`;
+    }).join('');
+  }
+  renderStorPanel(filtered);
+}
+function renderStorPanel(filtered){
+  const prod={}; let tot=0;
+  filtered.forEach(r=>{ Object.entries(r.items||{}).forEach(([n,q])=>{ prod[n]=(prod[n]||0)+q; }); tot+=r.totale||0; });
+  const entries=Object.entries(prod).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const mFilter=document.getElementById('spMonth').value||'';
+  const lbl=mFilter?(()=>{ try{ const [y,m]=mFilter.split('-'); return new Date(y,+m-1).toLocaleDateString('it-IT',{month:'long',year:'numeric'}); }catch(e){ return mFilter; } })():(filtered.length?filtered.length+' '+(filtered.length===1?'giorno':'giorni'):'');
+  document.getElementById('spSub').textContent=lbl;
+  document.getElementById('spTot').textContent=tot;
+  document.getElementById('spList').innerHTML=entries.length===0
+    ?`<div class="sp-empty">Nessun dato</div>`
+    :entries.map(([n,q])=>`<div class="sp-row"><span class="sp-name">${escHtml(n)}</span><span class="sp-qty">${q}</span></div>`).join('');
 }
 
 /* ---- Avvio ---- */
