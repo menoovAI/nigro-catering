@@ -145,6 +145,7 @@
   .btn-go{background:linear-gradient(180deg,#ecb34a,var(--wheat));color:var(--crust-2);box-shadow:0 4px 12px rgba(187,124,20,.3);}
   .btn-ready{background:linear-gradient(180deg,#7cb85a,#5b8c3e);color:#fff;box-shadow:0 4px 12px rgba(91,140,62,.3);}
   .btn-ghost{background:var(--paper);color:var(--crust);border:1.5px solid var(--line);font-size:14.5px;padding:12px 16px;}
+  .btn-print{background:var(--paper);color:var(--crust);border:1.5px solid var(--line);font-size:14.5px;padding:12px 16px;}
 
   .lab-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--muted-2);text-align:center;}
   .lab-empty svg{width:64px;height:64px;opacity:.5;} .lab-empty p{font-size:16px;font-weight:500;color:var(--muted);}
@@ -192,7 +193,8 @@
       <div class="ord-wrap">
         <div class="filters" id="filters">
           <button class="chip-f active" data-when="today">Da produrre oggi <span class="n" id="nToday"></span></button>
-          <button class="chip-f" data-when="later">Da preparare successivamente <span class="n" id="nLater"></span></button>
+          <button class="chip-f" data-when="tomorrow">Domani <span class="n" id="nTomorrow"></span></button>
+          <button class="chip-f" data-when="later">Successivi <span class="n" id="nLater"></span></button>
         </div>
         <div class="ord-body">
           <div class="lab-orders" id="orders"></div>
@@ -253,6 +255,7 @@ function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch
 function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 function fmtDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
 function today(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+function tomorrow(){const d=new Date();d.setDate(d.getDate()+1);const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
 function fromRow(r){ return { id:r.id, name:r.nome, date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[] }; }
 
 /* ---- Audio ---- */
@@ -291,16 +294,21 @@ function undoDone(id){ done.delete(id); writeJSON(LS_DONE,[...done]); render(); 
 
 /* ---- Render ---- */
 function shown(){
-  const t=today();
-  let arr = orders.filter(o=> o.stato!=='consegnato' && !done.has(o.id) && (when==='today' ? (o.date||'')<=t : (o.date||'')>t));
+  const t=today(), tm=tomorrow();
+  let arr = orders.filter(o=> o.stato!=='consegnato' && !done.has(o.id) && (
+    when==='today'    ? (o.date||'')<=t :
+    when==='tomorrow' ? (o.date||'')===tm :
+                        (o.date||'')>tm
+  ));
   arr.sort((a,b)=> (a.date||'').localeCompare(b.date||'') || (a.ora||'').localeCompare(b.ora||''));
   return arr;
 }
 function render(){
   // contatori filtri (per data)
-  const tdy=today(); let nT=0,nL=0;
-  orders.forEach(o=>{ if(o.stato==='consegnato'||done.has(o.id)) return; if((o.date||'')<=tdy) nT++; else nL++; });
+  const tdy=today(), tmr=tomorrow(); let nT=0,nTm=0,nL=0;
+  orders.forEach(o=>{ if(o.stato==='consegnato'||done.has(o.id)) return; const d=o.date||''; if(d<=tdy) nT++; else if(d===tmr) nTm++; else nL++; });
   document.getElementById('nToday').textContent=nT||'';
+  document.getElementById('nTomorrow').textContent=nTm||'';
   document.getElementById('nLater').textContent=nL||'';
 
   const arr=shown();
@@ -312,7 +320,8 @@ function render(){
       const meta=[fmtDate(o.date), o.ora].filter(Boolean).join(' &middot; ');
       const note=o.note?`<div class="lc-note">${escHtml(o.note)}</div>`:'';
       const chips=o.items.map(it=>`<span class="chip"><b>${it.qty}\u00d7</b>${escHtml(it.name)}</span>`).join('');
-      const action=`<button class="btn btn-ready" onclick="markDone('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fatto</button>`;
+      const action=`<button class="btn btn-ready" onclick="markDone('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fatto</button>
+        <button class="btn btn-print" onclick="printOrder('${o.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Stampa</button>`;
       return `<div class="lab-card">
         <div class="lc-head">
           <div class="lc-main">
@@ -332,7 +341,7 @@ function render(){
   const prod={}; let tot=0;
   arr.forEach(o=>{ o.items.forEach(it=>{ prod[it.name]=(prod[it.name]||0)+it.qty; }); tot+=o.pieces||0; });
   const entries=Object.entries(prod).sort((a,b)=> b[1]-a[1] || a[0].localeCompare(b[0]));
-  const lbl = when==='today'?'Oggi':'Giorni successivi';
+  const lbl = when==='today'?'Oggi':when==='tomorrow'?'Domani':'Giorni successivi';
   document.getElementById('boardSub').textContent = entries.length?lbl:'';
   document.getElementById('boardTot').textContent = tot;
   document.getElementById('boardList').innerHTML = entries.length===0
@@ -359,6 +368,58 @@ function subscribe(){
       beep();
     }
   }).subscribe();
+}
+
+/* ---- Stampa: apre pagina HTML 80mm e lancia il dialogo di stampa ---- */
+function printOrder(id){
+  const o=orders.find(x=>x.id===id); if(!o) return;
+  const ora=o.ora?' alle '+o.ora:'';
+  const righe=o.items.map(it=>`<tr><td class="qty">${it.qty}×</td><td class="pn">${escHtml(it.name)}</td></tr>`).join('');
+  const note=o.note?`<div class="note">${escHtml(o.note)}</div>`:'';
+  const ts=(()=>{try{return new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}})();
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Ordine ${escHtml(o.name)}</title>
+<style>
+  @page{size:80mm auto;margin:4mm 3mm;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Courier New',Courier,monospace;font-size:12px;width:74mm;color:#000;}
+  .center{text-align:center;}
+  .shop{font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;}
+  .sub{font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-top:3px;color:#444;}
+  hr{border:none;border-top:1px dashed #000;margin:6px 0;}
+  .info{margin:6px 0;}
+  .info td{padding:1px 0;font-size:11.5px;vertical-align:top;}
+  .info td:first-child{font-weight:bold;white-space:nowrap;padding-right:6px;}
+  .items{width:100%;border-collapse:collapse;margin:4px 0;}
+  .items td{padding:3px 0;font-size:12px;vertical-align:top;}
+  .qty{white-space:nowrap;font-weight:bold;padding-right:5px;color:#000;width:1%;}
+  .pn{word-break:break-word;}
+  .total-row{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:4px 0;}
+  .note{font-size:10.5px;color:#333;font-style:italic;border-left:2px solid #000;padding-left:5px;margin:5px 0;}
+  .footer{text-align:center;font-size:10px;color:#555;margin-top:8px;}
+  .stamp{text-align:right;font-size:9.5px;color:#888;margin-top:10px;}
+</style>
+</head><body>
+<div class="center"><div class="shop">Pane per i tuoi denti</div><div class="sub">Ordine di ritiro</div></div>
+<hr>
+<table class="info">
+  <tr><td>Cliente</td><td>${escHtml(o.name)}</td></tr>
+  <tr><td>Ritiro</td><td>${fmtDate(o.date)}${escHtml(ora)}</td></tr>
+  ${o.phone?`<tr><td>Tel.</td><td>${escHtml(o.phone)}</td></tr>`:''}
+</table>
+<hr>
+<table class="items">${righe}</table>
+<hr>
+<div class="total-row"><span>TOTALE</span><span>${o.pieces} ${o.pieces===1?'pezzo':'pezzi'}</span></div>
+${note}
+<hr>
+<div class="footer">Grazie!</div>
+<div class="stamp">Stampato ${ts}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+  const w=window.open('','_blank','width=320,height=600');
+  if(w){ w.document.write(html); w.document.close(); }
+  else toast('Abilita i popup per stampare');
 }
 
 /* ---- Navigazione viste ---- */
