@@ -78,6 +78,8 @@
   .done h2{font-family:'Fraunces',serif;font-weight:900;font-size:27px;color:var(--crust);}
   .done p{font-size:16px;color:var(--muted);max-width:300px;line-height:1.45;}
   .done button{margin-top:8px;padding:15px 28px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font-family:inherit;font-weight:700;font-size:16px;cursor:pointer;}
+  .done .btn-print{background:linear-gradient(180deg,#ecb34a,var(--wheat));color:var(--crust-2);border:none;box-shadow:0 4px 14px rgba(187,124,20,.35);display:flex;align-items:center;gap:9px;justify-content:center;}
+  .done .btn-print svg{width:20px;height:20px;}
 </style>
 </head>
 <body>
@@ -86,7 +88,7 @@
     <div class="seal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M12 6c0-2 2-3 4-2M12 6c0-2-2-3-4-2M12 11c0-2 2-3 4-2M12 11c0-2-2-3-4-2M12 16c0-2 2-3 4-2M12 16c0-2-2-3-4-2"/></svg></div>
     <div><h1>Pane per i tuoi denti</h1><p>Ordina online</p></div>
   </header>
-  <div class="intro"></div>
+  <div class="intro">Scegli i prodotti e indica quando vuoi ritirare. Penseremo noi a prepararli.</div>
   <main id="menu"></main>
   <div class="cartbar" id="cartbar" onclick="openSheet()">
     <div class="info"><b id="cartCount">0</b> <span id="cartWord">pezzi</span></div>
@@ -96,7 +98,7 @@
 
 <div class="overlay" id="overlay">
   <div class="sheet">
-    <div class="sheet-head"><h2>Ordine cliente</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-head"><h2>Il tuo ordine</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div class="sheet-body" id="sheetBody"></div>
     <div class="sheet-foot">
       <div class="tot-row"><span class="l">Totale</span><span class="v" id="sheetTotal">0 pezzi</span></div>
@@ -110,6 +112,7 @@
   <div class="circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
   <h2>Ordine inviato!</h2>
   <p id="doneMsg"></p>
+  <button class="btn-print" onclick="printReceipt()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Stampa ricevuta</button>
   <button onclick="newOrder()">Fai un altro ordine</button>
 </div>
 
@@ -122,13 +125,13 @@ const SUPABASE_ANON_KEY = 'sb_publishable_Hi9yRrHX9MKWrpWe51vVIQ_HSZTWHmp';
 /* Prodotti del panificio (gli stessi del banco) */
 const PRODUCTS = ['Campagnola','Pomodoro e formaggio','Spinaci','Broccoli','Melanzana','Ricotta e salsiccia','Ricotta e fave','Ricotta e spinaci','Ricotta e cipolla','Seppia','Spada e melanzana','Friarielli','Patate e salsiccia','Pollo e patate','Pastieri'];
 
-let sb=null, cart={}, sending=false;
+let sb=null, cart={}, sending=false, lastOrder=null;
 
 function today(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
 function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
 
 function renderMenu(){
-  document.getElementById('menu').innerHTML = `<div class="sec-title">Prodotti</div>` + PRODUCTS.map((name,i)=>`
+  document.getElementById('menu').innerHTML = `<div class="sec-title">I nostri prodotti</div>` + PRODUCTS.map((name,i)=>`
     <div class="item">
       <div class="item-name">${escHtml(name)}</div>
       <div class="item-ctrl" id="ctrl-${i}">${ctrlHtml(i)}</div>
@@ -197,11 +200,64 @@ async function sendOrder(){
   try{
     if(sb){ const { error } = await sb.from('ordini').insert(row); if(error) throw error; }
     const dl=(()=>{ try{ return new Date(date+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ return date; } })();
+    lastOrder={ name, date, ora, phone, note, items, pieces:n };
     document.getElementById('doneMsg').textContent='Grazie '+name+'! Lo prepariamo per '+dl+(ora?' alle '+ora:'')+'.';
+    closeSheet(); document.getElementById('done').classList.add('show');
     closeSheet(); document.getElementById('done').classList.add('show');
     cart={}; prevName='';prevDate='';prevOra='';prevPhone='';prevNote=''; renderMenu(); updateBar();
   }catch(e){ document.getElementById('hint').textContent='Invio non riuscito, riprova.'; console.error(e); }
   finally{ sending=false; btn.disabled=false; btn.textContent='Invia ordine'; }
+}
+function printReceipt(){
+  if(!lastOrder) return;
+  const o=lastOrder;
+  const ora=o.ora?' alle '+o.ora:'';
+  const dl=(()=>{ try{ return new Date(o.date+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ return o.date; } })();
+  const righe=o.items.map(it=>`<tr><td class="qty">${it.qty}×</td><td class="pn">${escHtml(it.name)}</td></tr>`).join('');
+  const note=o.note?`<div class="note">${escHtml(o.note)}</div>`:'';
+  const ts=(()=>{ try{ return new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } })();
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<title>Ricevuta ${escHtml(o.name)}</title>
+<style>
+  @page{size:80mm auto;margin:4mm 3mm;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Courier New',Courier,monospace;font-size:12px;width:74mm;color:#000;}
+  .center{text-align:center;}
+  .shop{font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;}
+  .sub{font-size:10px;letter-spacing:.12em;text-transform:uppercase;margin-top:3px;color:#444;}
+  hr{border:none;border-top:1px dashed #000;margin:6px 0;}
+  .info{margin:6px 0;width:100%;border-collapse:collapse;}
+  .info td{padding:2px 0;font-size:11.5px;vertical-align:top;}
+  .info td:first-child{font-weight:bold;white-space:nowrap;padding-right:8px;}
+  .items{width:100%;border-collapse:collapse;margin:4px 0;}
+  .items td{padding:3px 0;font-size:12px;vertical-align:top;}
+  .qty{white-space:nowrap;font-weight:bold;padding-right:6px;width:1%;}
+  .pn{word-break:break-word;}
+  .total-row{display:flex;justify-content:space-between;font-size:13px;font-weight:bold;margin:4px 0;}
+  .note{font-size:10.5px;color:#333;font-style:italic;border-left:2px solid #000;padding-left:5px;margin:5px 0;}
+  .footer{text-align:center;font-size:11px;color:#333;margin-top:8px;font-weight:bold;}
+  .stamp{text-align:right;font-size:9px;color:#888;margin-top:10px;}
+</style>
+</head><body>
+<div class="center"><div class="shop">Pane per i tuoi denti</div><div class="sub">Ricevuta ordine</div></div>
+<hr>
+<table class="info">
+  <tr><td>Cliente</td><td>${escHtml(o.name)}</td></tr>
+  <tr><td>Ritiro</td><td>${escHtml(dl)}${escHtml(ora)}</td></tr>
+  ${o.phone?`<tr><td>Tel.</td><td>${escHtml(o.phone)}</td></tr>`:''}
+</table>
+<hr>
+<table class="items">${righe}</table>
+<hr>
+<div class="total-row"><span>TOTALE</span><span>${o.pieces} ${o.pieces===1?'pezzo':'pezzi'}</span></div>
+${note}
+<hr>
+<div class="footer">Grazie per il tuo ordine!</div>
+<div class="stamp">Emessa ${ts}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`;
+  const w=window.open('','_blank','width=320,height=600');
+  if(w){ w.document.write(html); w.document.close(); }
 }
 function newOrder(){ document.getElementById('done').classList.remove('show'); window.scrollTo(0,0); }
 
@@ -210,4 +266,4 @@ renderMenu(); updateBar();
 if(window.supabase && SUPABASE_URL.indexOf('INSERISCI')<0){ try{ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb=null; } }
 </script>
 </body>
-</html>
+</html>  
