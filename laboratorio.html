@@ -56,11 +56,13 @@
   .nav button.active{background:var(--crust);color:var(--paper);box-shadow:0 3px 10px rgba(54,35,26,.25);}
   .nav button svg{width:17px;height:17px;}
   .view{display:none;flex:1 1 auto;min-height:0;width:100%;}
+  .view:not(.active){display:none!important;}
   .view.active{display:flex;}
   .view-ordini{flex-direction:column;}
   .ord-wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:12px;}
   .ord-body{flex:1;min-height:0;display:flex;gap:14px;}
   .view-produzione{flex-direction:row;gap:14px;}
+  .view-reso{flex-direction:row;gap:14px;}
   .view-storico{flex-direction:row;gap:14px;}
 
   .grid{flex:1 1 auto;min-width:0;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:12px;}
@@ -127,12 +129,17 @@
   .sp-foot .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:rgba(243,233,218,.6);font-weight:600;}
   .sp-foot .tot{font-family:'Fraunces',serif;font-weight:900;font-size:28px;color:#fff;font-variant-numeric:tabular-nums;}
   .sp-empty{height:100%;display:flex;align-items:center;justify-content:center;color:rgba(243,233,218,.4);font-size:14px;text-align:center;padding:20px;}
+  .reso-foot{border-top:1px solid rgba(255,255,255,.08);} .reso-foot .tot{color:#f0a98c;font-size:24px;}
   .s-card{background:var(--paper);border:1.5px solid var(--line-soft);border-radius:18px;padding:16px 18px;box-shadow:0 4px 14px rgba(54,35,26,.05);}
   .s-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
   .s-date{font-family:'Fraunces',serif;font-weight:600;font-size:20px;color:var(--crust);text-transform:capitalize;}
   .s-tot{font-family:'Fraunces',serif;font-weight:900;font-size:24px;color:var(--wheat-deep);}
   .s-tot small{font-family:'Bricolage Grotesque',sans-serif;font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-left:5px;}
   .s-items{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px;}
+  .reso-block{margin-top:13px;padding-top:12px;border-top:1px dashed var(--line);}
+  .reso-label{font-size:12px;font-weight:800;color:#a23f22;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+  .chip.reso-chip{background:#f7e7df;color:#a23f22;}
+  .chip.reso-chip b{color:#8a3119;}
   .list-empty{text-align:center;padding:60px 20px;color:var(--muted);} .list-empty svg{width:60px;height:60px;opacity:.4;margin-bottom:14px;} .list-empty p{font-size:15px;font-weight:500;}
   .lab-orders{flex:1 1 auto;min-width:0;overflow-y:auto;display:flex;flex-direction:column;gap:13px;padding-right:2px;}
   .lab-card{background:var(--paper);border:1.5px solid var(--line-soft);border-radius:20px;padding:18px 20px;box-shadow:0 4px 16px rgba(54,35,26,.06);animation:rise .35s ease;}
@@ -196,6 +203,7 @@
     <nav class="nav">
       <button id="navOrdini" class="active" onclick="showView('ordini')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1h2a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2V4a1 1 0 0 1 1-1Z"/><path d="M8 11h8M8 15h5"/></svg>Ordini</button>
       <button id="navProduzione" onclick="showView('produzione')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Produzione</button>
+      <button id="navReso" onclick="showView('reso')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3.5 13a9 9 0 1 0 2.3-9.3L3 7"/></svg>Reso</button>
       <button id="navStorico" onclick="showView('storico')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><rect x="5" y="11" width="3.4" height="7" rx="1"/><rect x="10.3" y="6" width="3.4" height="12" rx="1"/><rect x="15.6" y="14" width="3.4" height="4" rx="1"/></svg>Storico</button>
     </nav>
     <div class="head-right">
@@ -232,6 +240,19 @@
           <div class="ps-total-row"><span class="lbl">Totale prodotti</span><span class="ps-total" id="psTotal">0</span></div>
           <div class="ps-save" id="psSave"></div>
           <button class="ps-reset" onclick="resetProduzione()">Azzera giornata</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="view view-reso" id="viewReso">
+      <div class="grid" id="resoGrid"></div>
+      <aside class="prod-side">
+        <div class="ps-head"><div><h2>Rimanenza</h2><span class="ps-date" id="rsDate"></span></div><button class="icon-btn" id="editResoBtn" onclick="toggleEditReso()" title="Modifica nomi prodotti"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></div>
+        <div class="ps-list" id="rsList"></div>
+        <div class="ps-foot">
+          <div class="ps-total-row"><span class="lbl">Totale invenduto</span><span class="ps-total" id="rsTotal">0</span></div>
+          <div class="ps-save" id="rsSave"></div>
+          <button class="ps-reset" onclick="resetReso()">Azzera giornata</button>
         </div>
       </aside>
     </section>
@@ -276,6 +297,9 @@ const DEFAULTS=[{name:'Campagnola'},{name:'Pomodoro e formaggio'},{name:'Spinaci
 let view='ordini', editingProd=false, saveT=null, storico=[];
 let labProducts=(()=>{ const c=readJSON(LS_LABPROD); return (Array.isArray(c)&&c.length===16)?c:DEFAULTS.map(p=>({name:p.name})); })();
 let prodToday=(()=>{ const c=readJSON(LS_PROD_TODAY); return (c&&c.date===today()&&Array.isArray(c.q)&&c.q.length===16)?c:{date:today(),q:DEFAULTS.map(()=>0)}; })();
+const LS_RESO_TODAY='laboratorio_reso_oggi_v1';
+let editingReso=false, saveResoT=null;
+let resoToday=(()=>{ const c=readJSON(LS_RESO_TODAY); return (c&&c.date===today()&&Array.isArray(c.q)&&c.q.length===16)?c:{date:today(), q:DEFAULTS.map(()=>0)}; })();
 
 function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
@@ -468,8 +492,9 @@ ${note}
 /* ---- Navigazione viste ---- */
 function showView(name){
   view=name;
-  ['ordini','produzione','storico'].forEach(v=>{ const cap=v[0].toUpperCase()+v.slice(1); document.getElementById('view'+cap).classList.toggle('active',v===name); document.getElementById('nav'+cap).classList.toggle('active',v===name); });
+  ['ordini','produzione','reso','storico'].forEach(v=>{ const cap=v[0].toUpperCase()+v.slice(1); document.getElementById('view'+cap).classList.toggle('active',v===name); document.getElementById('nav'+cap).classList.toggle('active',v===name); });
   if(name==='produzione'){ buildProdGrid(); renderProdSidebar(); refreshProduzione(); }
+  if(name==='reso'){ buildResoGrid(); renderResoSidebar(); refreshReso(); }
   if(name==='storico'){
     const d=new Date(); const z=n=>String(n).padStart(2,'0');
     const cur=d.getFullYear()+'-'+z(d.getMonth()+1);
@@ -478,6 +503,7 @@ function showView(name){
     renderStorico(); loadStorico();
   }
   if(name!=='produzione' && editingProd) toggleEditProd();
+  if(name!=='reso' && editingReso) toggleEditReso();
 }
 
 /* ---- Produzione (registro giornaliero del laboratorio) ---- */
@@ -533,10 +559,69 @@ async function refreshProduzione(){
 }
 function resetProduzione(){ if(!confirm('Azzerare i conteggi della produzione di oggi?'))return; prodToday={date:today(), q:labProducts.map(()=>0)}; writeJSON(LS_PROD_TODAY,prodToday); buildProdGrid(); renderProdSidebar(); saveProduzione(); }
 
+/* ---- Reso (rimanenza/invenduto di fine giornata) ---- */
+function buildResoGrid(){
+  if(resoToday.date!==today()) resoToday={date:today(), q:labProducts.map(()=>0)};
+  const g=document.getElementById('resoGrid'); g.innerHTML='';
+  labProducts.forEach((p,i)=>{
+    const q=resoToday.q[i]||0;
+    const tile=document.createElement('div'); tile.className='tile'+(q>0?' active':''); tile.dataset.i=i;
+    if(editingReso){ tile.innerHTML=`<div class="tile-top"><input class="edit-field edit-name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Prodotto libero" maxlength="24" data-i="${i}"></div>`; }
+    else{ const disp=p.name?escHtml(p.name):'<span class="p-empty">Libero</span>'; tile.innerHTML=`<div class="tile-top"><div class="p-name">${disp}</div></div><div class="controls"><button class="step minus" ${q===0?'disabled':''}>–</button><div class="qty">${q}</div><button class="step plus">+</button></div>`; }
+    g.appendChild(tile);
+  });
+  if(editingReso){ g.querySelectorAll('.edit-field').forEach(inp=>inp.addEventListener('input',e=>{ labProducts[+e.target.dataset.i].name=e.target.value; writeJSON(LS_LABPROD,labProducts); renderResoSidebar(); buildProdGrid(); renderProdSidebar(); })); }
+  else{ g.querySelectorAll('.tile').forEach(t=>{ const i=+t.dataset.i; t.querySelector('.plus').addEventListener('click',()=>resoInc(i,1)); t.querySelector('.minus').addEventListener('click',()=>resoInc(i,-1)); }); }
+}
+function resoInc(i,d){
+  if(resoToday.date!==today()) resoToday={date:today(), q:labProducts.map(()=>0)};
+  resoToday.q[i]=Math.max(0,(resoToday.q[i]||0)+d);
+  const t=document.querySelector(`#resoGrid .tile[data-i="${i}"]`); const q=t.querySelector('.qty');
+  q.textContent=resoToday.q[i]; q.classList.remove('bump'); void q.offsetWidth; q.classList.add('bump');
+  t.classList.toggle('active', resoToday.q[i]>0); t.querySelector('.minus').disabled=resoToday.q[i]===0;
+  writeJSON(LS_RESO_TODAY, resoToday); renderResoSidebar(); scheduleSaveReso();
+}
+function renderResoSidebar(){
+  const d=new Date(); document.getElementById('rsDate').textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  const rows=[]; let tot=0;
+  labProducts.forEach((p,i)=>{ const q=resoToday.q[i]||0; if(q>0){ rows.push(`<div class="ps-row"><span class="ps-name">${escHtml(p.name||'Libero')}</span><span class="ps-qty">${q}</span></div>`); tot+=q; } });
+  document.getElementById('rsList').innerHTML = rows.length? rows.join('') : `<div class="ps-empty">Tocca un prodotto per contare ciò che è rimasto invenduto</div>`;
+  document.getElementById('rsTotal').textContent=tot;
+}
+function toggleEditReso(){ editingReso=!editingReso; document.getElementById('editResoBtn').classList.toggle('on',editingReso); buildResoGrid(); }
+function setSaveResoStatus(s){ const el=document.getElementById('rsSave'); if(!el)return; el.style.color=''; if(s==='saving'){ el.className='ps-save saving'; el.textContent='Salvataggio…'; } else if(s==='saved'){ el.className='ps-save ok'; el.textContent='✓ Salvato'; } else if(s==='error'){ el.className='ps-save'; el.style.color='#e6a59a'; el.textContent='Salvataggio non riuscito'; } else { el.className='ps-save'; el.textContent=''; } }
+function scheduleSaveReso(){ setSaveResoStatus('saving'); clearTimeout(saveResoT); saveResoT=setTimeout(saveReso,800); }
+async function saveReso(){
+  const items={}; let tot=0;
+  labProducts.forEach((p,i)=>{ const q=resoToday.q[i]||0; if(p.name && q>0) items[p.name]=(items[p.name]||0)+q; tot+=q; });
+  resoToday.date=today(); writeJSON(LS_RESO_TODAY, resoToday);
+  if(!sb){ setSaveResoStatus('saved'); return; }
+  try{ const { error } = await sb.from('resi').upsert({ data:today(), items, totale:tot, updated_at:new Date().toISOString() }); if(error) throw error; setSaveResoStatus('saved'); }
+  catch(e){ setSaveResoStatus('error'); console.error('reso save', e.message||e); }
+}
+async function refreshReso(){
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.from('resi').select('*').eq('data', today()).maybeSingle();
+    if(error) throw error;
+    const items=(data&&data.items)||{};
+    resoToday={ date:today(), q: labProducts.map(p=> p.name?(items[p.name]||0):0) };
+    writeJSON(LS_RESO_TODAY, resoToday);
+    if(view==='reso'){ buildResoGrid(); renderResoSidebar(); }
+  }catch(e){ console.error('reso load', e.message||e); }
+}
+function resetReso(){ if(!confirm('Azzerare i conteggi della rimanenza di oggi?'))return; resoToday={date:today(), q:labProducts.map(()=>0)}; writeJSON(LS_RESO_TODAY,resoToday); buildResoGrid(); renderResoSidebar(); saveReso(); }
+
 /* ---- Storico produzione ---- */
+let storicoResi={};
 async function loadStorico(){
   if(!sb) return;
-  try{ const { data, error } = await sb.from('produzione').select('*').order('data',{ascending:false}); if(error) throw error; storico=data||[]; renderStorico(); }
+  try{
+    const { data, error } = await sb.from('produzione').select('*').order('data',{ascending:false}); if(error) throw error; storico=data||[];
+    const { data:rd, error:re } = await sb.from('resi').select('*'); if(re) throw re;
+    storicoResi={}; (rd||[]).forEach(r=>{ storicoResi[r.data]=r; });
+    renderStorico();
+  }
   catch(e){ console.error('storico', e.message||e); }
 }
 function renderStorico(){
@@ -550,7 +635,14 @@ function renderStorico(){
       const entries=Object.entries(r.items||{}).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
       const chips=entries.length?entries.map(([n,q])=>`<span class="chip"><b>${q}\u00d7</b>${escHtml(n)}</span>`).join(''):'<span style="color:var(--muted);font-size:14px">Nessun prodotto</span>';
       let dlabel; try{ dlabel=new Date(r.data+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ dlabel=fmtDate(r.data); }
-      return `<div class="s-card"><div class="s-head"><span class="s-date">${dlabel}</span><span class="s-tot">${r.totale||0}<small>pezzi</small></span></div><div class="s-items">${chips}</div></div>`;
+      const reso=storicoResi[r.data];
+      let resoBlock='';
+      if(reso && (reso.totale||0)>0){
+        const rentries=Object.entries(reso.items||{}).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+        const rchips=rentries.map(([n,q])=>`<span class="chip reso-chip"><b>${q}\u00d7</b>${escHtml(n)}</span>`).join('');
+        resoBlock=`<div class="reso-block"><div class="reso-label">Invenduto: ${reso.totale} ${reso.totale===1?'pezzo':'pezzi'}</div><div class="s-items">${rchips}</div></div>`;
+      }
+      return `<div class="s-card"><div class="s-head"><span class="s-date">${dlabel}</span><span class="s-tot">${r.totale||0}<small>pezzi</small></span></div><div class="s-items">${chips}</div>${resoBlock}</div>`;
     }).join('');
   }
   renderStorPanel(filtered);
@@ -563,6 +655,10 @@ function renderStorPanel(filtered){
   const lbl=mFilter?(()=>{ try{ const [y,m]=mFilter.split('-'); return new Date(y,+m-1).toLocaleDateString('it-IT',{month:'long',year:'numeric'}); }catch(e){ return mFilter; } })():(filtered.length?filtered.length+' '+(filtered.length===1?'giorno':'giorni'):'');
   document.getElementById('spSub').textContent=lbl;
   document.getElementById('spTot').textContent=tot;
+  let resoTot=0; filtered.forEach(r=>{ const ri=storicoResi[r.data]; if(ri) resoTot+=ri.totale||0; });
+  let footEl=document.getElementById('spResoTot');
+  if(!footEl){ footEl=document.createElement('div'); footEl.id='spResoTot'; footEl.className='sp-foot reso-foot'; footEl.innerHTML=`<span class="lbl">Invenduto periodo</span><span class="tot" id="spResoVal">0</span>`; document.querySelector('.stor-panel').appendChild(footEl); }
+  document.getElementById('spResoVal').textContent=resoTot;
   document.getElementById('spList').innerHTML=entries.length===0
     ?`<div class="sp-empty">Nessun dato</div>`
     :entries.map(([n,q])=>`<div class="sp-row"><span class="sp-name">${escHtml(n)}</span><span class="sp-qty">${q}</span></div>`).join('');
@@ -574,11 +670,12 @@ function renderStorPanel(filtered){
   const cache=readJSON(LS_ORDERS); orders=Array.isArray(cache)?cache:[];
   render();
   buildProdGrid(); renderProdSidebar();
+  buildResoGrid(); renderResoSidebar();
   if(window.supabase && SUPABASE_URL.indexOf('INSERISCI')<0){
     try{ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb=null; }
   }
   setStatus();
-  if(sb){ await loadOrders(); render(); subscribe(); refreshProduzione(); }
+  if(sb){ await loadOrders(); render(); subscribe(); refreshProduzione(); refreshReso(); }
 })();
 </script>
 </body>
