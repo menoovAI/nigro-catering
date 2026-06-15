@@ -299,7 +299,7 @@ let labProducts=(()=>{ const c=readJSON(LS_LABPROD); return (Array.isArray(c)&&c
 let prodToday=(()=>{ const c=readJSON(LS_PROD_TODAY); return (c&&c.date===today()&&Array.isArray(c.q)&&c.q.length===16)?c:{date:today(),q:DEFAULTS.map(()=>0)}; })();
 const LS_RESO_TODAY='laboratorio_reso_oggi_v1';
 let editingReso=false, saveResoT=null;
-let resoToday=(()=>{ const c=readJSON(LS_RESO_TODAY); return (c&&c.date===today()&&Array.isArray(c.q)&&c.q.length===16)?c:{date:today(), q:DEFAULTS.map(()=>0)}; })();
+let resoToday=(()=>{ const c=readJSON(LS_RESO_TODAY); return (c&&c.date===yesterday()&&Array.isArray(c.q)&&c.q.length===16)?c:{date:yesterday(), q:DEFAULTS.map(()=>0)}; })();
 
 function readJSON(k){ try{ return JSON.parse(localStorage.getItem(k)); }catch(e){ return null; } }
 function writeJSON(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
@@ -307,6 +307,8 @@ function escHtml(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;',
 function fmtDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;}
 function today(){const d=new Date();const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
 function tomorrow(){const d=new Date();d.setDate(d.getDate()+1);const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+function yesterday(){const d=new Date();d.setDate(d.getDate()-1);const z=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+function labelDate(iso){ try{ return new Date(iso+'T00:00:00').toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'}); }catch(e){ return fmtDate(iso); } }
 function fromRow(r){ return { id:r.id, name:r.nome, date:r.data||'', ora:r.ora||'', note:r.note||'', stato:r.stato||'programmato', pieces:r.pezzi||0, items:Array.isArray(r.items)?r.items:[] }; }
 
 /* ---- Audio ---- */
@@ -561,7 +563,7 @@ function resetProduzione(){ if(!confirm('Azzerare i conteggi della produzione di
 
 /* ---- Reso (rimanenza/invenduto di fine giornata) ---- */
 function buildResoGrid(){
-  if(resoToday.date!==today()) resoToday={date:today(), q:labProducts.map(()=>0)};
+  if(resoToday.date!==yesterday()) resoToday={date:yesterday(), q:labProducts.map(()=>0)};
   const g=document.getElementById('resoGrid'); g.innerHTML='';
   labProducts.forEach((p,i)=>{
     const q=resoToday.q[i]||0;
@@ -574,7 +576,7 @@ function buildResoGrid(){
   else{ g.querySelectorAll('.tile').forEach(t=>{ const i=+t.dataset.i; t.querySelector('.plus').addEventListener('click',()=>resoInc(i,1)); t.querySelector('.minus').addEventListener('click',()=>resoInc(i,-1)); }); }
 }
 function resoInc(i,d){
-  if(resoToday.date!==today()) resoToday={date:today(), q:labProducts.map(()=>0)};
+  if(resoToday.date!==yesterday()) resoToday={date:yesterday(), q:labProducts.map(()=>0)};
   resoToday.q[i]=Math.max(0,(resoToday.q[i]||0)+d);
   const t=document.querySelector(`#resoGrid .tile[data-i="${i}"]`); const q=t.querySelector('.qty');
   q.textContent=resoToday.q[i]; q.classList.remove('bump'); void q.offsetWidth; q.classList.add('bump');
@@ -582,7 +584,7 @@ function resoInc(i,d){
   writeJSON(LS_RESO_TODAY, resoToday); renderResoSidebar(); scheduleSaveReso();
 }
 function renderResoSidebar(){
-  const d=new Date(); document.getElementById('rsDate').textContent=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('rsDate').textContent='Rimasto da '+labelDate(yesterday());
   const rows=[]; let tot=0;
   labProducts.forEach((p,i)=>{ const q=resoToday.q[i]||0; if(q>0){ rows.push(`<div class="ps-row"><span class="ps-name">${escHtml(p.name||'Libero')}</span><span class="ps-qty">${q}</span></div>`); tot+=q; } });
   document.getElementById('rsList').innerHTML = rows.length? rows.join('') : `<div class="ps-empty">Tocca un prodotto per contare ciò che è rimasto invenduto</div>`;
@@ -594,23 +596,23 @@ function scheduleSaveReso(){ setSaveResoStatus('saving'); clearTimeout(saveResoT
 async function saveReso(){
   const items={}; let tot=0;
   labProducts.forEach((p,i)=>{ const q=resoToday.q[i]||0; if(p.name && q>0) items[p.name]=(items[p.name]||0)+q; tot+=q; });
-  resoToday.date=today(); writeJSON(LS_RESO_TODAY, resoToday);
+  resoToday.date=yesterday(); writeJSON(LS_RESO_TODAY, resoToday);
   if(!sb){ setSaveResoStatus('saved'); return; }
-  try{ const { error } = await sb.from('resi').upsert({ data:today(), items, totale:tot, updated_at:new Date().toISOString() }); if(error) throw error; setSaveResoStatus('saved'); }
+  try{ const { error } = await sb.from('resi').upsert({ data:yesterday(), items, totale:tot, updated_at:new Date().toISOString() }); if(error) throw error; setSaveResoStatus('saved'); }
   catch(e){ setSaveResoStatus('error'); console.error('reso save', e.message||e); }
 }
 async function refreshReso(){
   if(!sb) return;
   try{
-    const { data, error } = await sb.from('resi').select('*').eq('data', today()).maybeSingle();
+    const { data, error } = await sb.from('resi').select('*').eq('data', yesterday()).maybeSingle();
     if(error) throw error;
     const items=(data&&data.items)||{};
-    resoToday={ date:today(), q: labProducts.map(p=> p.name?(items[p.name]||0):0) };
+    resoToday={ date:yesterday(), q: labProducts.map(p=> p.name?(items[p.name]||0):0) };
     writeJSON(LS_RESO_TODAY, resoToday);
     if(view==='reso'){ buildResoGrid(); renderResoSidebar(); }
   }catch(e){ console.error('reso load', e.message||e); }
 }
-function resetReso(){ if(!confirm('Azzerare i conteggi della rimanenza di oggi?'))return; resoToday={date:today(), q:labProducts.map(()=>0)}; writeJSON(LS_RESO_TODAY,resoToday); buildResoGrid(); renderResoSidebar(); saveReso(); }
+function resetReso(){ if(!confirm('Azzerare i conteggi della rimanenza di ieri?'))return; resoToday={date:yesterday(), q:labProducts.map(()=>0)}; writeJSON(LS_RESO_TODAY,resoToday); buildResoGrid(); renderResoSidebar(); saveReso(); }
 
 /* ---- Storico produzione ---- */
 let storicoResi={};
